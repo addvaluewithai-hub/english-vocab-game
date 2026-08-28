@@ -82,13 +82,13 @@ export interface UserCardState {
   createdAt: ISODateString;
   updatedAt: ISODateString;
   version: number;
-  stability?: number;
-  difficulty?: number;
-  elapsedDays?: number;
-  scheduledDays?: number;
-  learningSteps?: number;
-  fsrsState?: number;
-  schedulerVersion?: string;
+  stability?: number | undefined;
+  difficulty?: number | undefined;
+  elapsedDays?: number | undefined;
+  scheduledDays?: number | undefined;
+  learningSteps?: number | undefined;
+  fsrsState?: number | undefined;
+  schedulerVersion?: string | undefined;
 }
 
 export interface ReviewEvent {
@@ -98,9 +98,9 @@ export interface ReviewEvent {
   grade: ReviewGrade;
   reviewedAt: ISODateString;
   responseMs: number | null;
-  recallMode?: ReviewMode;
-  modeResult?: ReviewModeResult;
-  schedulerRating?: number | null;
+  recallMode?: ReviewMode | undefined;
+  modeResult?: ReviewModeResult | undefined;
+  schedulerRating?: number | null | undefined;
 }
 
 export interface StudyCard {
