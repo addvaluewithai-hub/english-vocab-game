@@ -3,8 +3,9 @@ import { MIGRATION_003 } from './migration-v3';
 import { MIGRATION_004 } from './migration-v4-learning';
 import { MIGRATION_005 } from './migration-v5-enrichment-imports';
 import { MIGRATION_006 } from './migration-v6-import-provenance';
+import { MIGRATION_007 } from './migration-v7-import-ranking';
 
-export const LATEST_DATABASE_VERSION = 6;
+export const LATEST_DATABASE_VERSION = 7;
 
 const MIGRATION_001 = `
 CREATE TABLE IF NOT EXISTS language_pairs (
@@ -33,8 +34,7 @@ CREATE TABLE IF NOT EXISTS terms (
 CREATE INDEX IF NOT EXISTS idx_terms_language_pair ON terms(language_pair_id, normalized_text);
 
 CREATE TABLE IF NOT EXISTS senses (
-  id TEXT PRIMARY KEY NOT NULL,
-  term_id TEXT NOT NULL REFERENCES terms(id),
+  id TEXT PRIMARY KEY NOT NULL REFERENCES terms(id),
   translation TEXT NOT NULL,
   definition TEXT,
   part_of_speech TEXT,
@@ -202,6 +202,7 @@ export const DATABASE_MIGRATIONS: readonly { version: number; sql: string }[] = 
   { version: 4, sql: MIGRATION_004 },
   { version: 5, sql: MIGRATION_005 },
   { version: 6, sql: MIGRATION_006 },
+  { version: 7, sql: MIGRATION_007 },
 ];
 
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
