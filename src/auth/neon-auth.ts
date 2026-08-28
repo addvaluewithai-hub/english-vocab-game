@@ -1,4 +1,4 @@
-import { createAuthClient, SupabaseAuthAdapter } from '@neondatabase/auth';
+import { createAuthClient } from '@neondatabase/auth';
 
 export interface AuthUser {
   id: string;
@@ -17,9 +17,7 @@ function authUrl(): string {
 }
 
 function createClient() {
-  return createAuthClient(authUrl(), {
-    adapter: SupabaseAuthAdapter(),
-  });
+  return createAuthClient(authUrl());
 }
 
 type NeonAuthClient = ReturnType<typeof createClient>;
@@ -30,20 +28,15 @@ function getClient(): NeonAuthClient {
   return client;
 }
 
-function userFromSupabase(user: {
+function userFromNeon(user: {
   id: string;
-  email?: string | null;
-  user_metadata?: Record<string, unknown>;
+  email: string;
+  name?: string | null;
 }): AuthUser {
-  if (!user.email) {
-    throw new Error('Neon Auth did not return a usable user session.');
-  }
-
-  const metadataName = user.user_metadata?.name;
   return {
     id: user.id,
     email: user.email,
-    name: typeof metadataName === 'string' && metadataName.trim() ? metadataName : null,
+    name: user.name?.trim() || null,
   };
 }
 
@@ -51,13 +44,15 @@ export async function signInWithEmail(
   email: string,
   password: string,
 ): Promise<AuthUser> {
-  const { data, error } = await getClient().signInWithPassword({
+  const result = await getClient().signIn.email({
     email: email.trim(),
     password,
   });
-  if (error) throw new Error(error.message);
-  if (!data.user) throw new Error('Neon Auth did not return a user after sign in.');
-  return userFromSupabase(data.user);
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data?.user) {
+    throw new Error('Neon Auth did not return a user after sign in.');
+  }
+  return userFromNeon(result.data.user);
 }
 
 export async function signUpWithEmail(
@@ -67,26 +62,27 @@ export async function signUpWithEmail(
 ): Promise<AuthUser> {
   const cleanEmail = email.trim();
   const cleanName = name.trim() || cleanEmail;
-  const { data, error } = await getClient().signUp({
+  const result = await getClient().signUp.email({
     email: cleanEmail,
     password,
-    options: { data: { name: cleanName } },
+    name: cleanName,
   });
-  if (error) throw new Error(error.message);
-  if (!data.user) throw new Error('Neon Auth did not return a user after sign up.');
-  return userFromSupabase(data.user);
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data?.user) {
+    throw new Error('Neon Auth did not return a user after sign up.');
+  }
+  return userFromNeon(result.data.user);
 }
 
 export async function restoreAuthUser(): Promise<AuthUser | null> {
   if (!process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim()) return null;
 
-  const { data, error } = await getClient().getUser();
-  if (error || !data.user) return null;
-  return userFromSupabase(data.user);
+  const result = await getClient().getSession();
+  if (result.error || !result.data?.user) return null;
+  return userFromNeon(result.data.user);
 }
 
 export async function signOutFromNeon(): Promise<void> {
   if (!process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim()) return;
-  const { error } = await getClient().signOut();
-  if (error) throw new Error(error.message);
+  await getClient().signOut();
 }
