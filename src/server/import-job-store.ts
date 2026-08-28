@@ -157,11 +157,11 @@ export async function storeServerCandidates(input: {
     await sql`
       INSERT INTO import_job_candidates(
         id,owner_id,job_id,candidate_key,term,translation,definition,part_of_speech,context_text,
-        source_occurrence,confidence,usefulness,duplicate_hint,is_visually_concrete,created_at
+        source_occurrence,confidence,usefulness,cefr_level,duplicate_hint,is_visually_concrete,created_at
       ) VALUES (
         ${`${input.jobId}:${candidate.candidateKey}`},${input.ownerId},${input.jobId},${candidate.candidateKey},
         ${candidate.term},${candidate.translation},${candidate.definition},${candidate.partOfSpeech},${candidate.context},
-        ${JSON.stringify(candidate.occurrence)}::jsonb,${candidate.confidence},${candidate.usefulness},
+        ${JSON.stringify(candidate.occurrence)}::jsonb,${candidate.confidence},${candidate.usefulness},${candidate.cefrLevel},
         ${candidate.duplicateHint},${candidate.isVisuallyConcrete},${createdAt}
       )
     `;
@@ -179,7 +179,7 @@ export async function serverJobSnapshot(ownerId: string, jobId: string): Promise
   const sql = serverSql();
   const rows = await sql`
     SELECT candidate_key,term,translation,definition,part_of_speech,context_text,source_occurrence,
-      confidence,usefulness,duplicate_hint,is_visually_concrete
+      confidence,usefulness,cefr_level,duplicate_hint,is_visually_concrete
     FROM import_job_candidates
     WHERE owner_id=${ownerId} AND job_id=${jobId}
     ORDER BY created_at,id
@@ -193,6 +193,7 @@ export async function serverJobSnapshot(ownerId: string, jobId: string): Promise
     source_occurrence: NormalizedImportCandidate['occurrence'];
     confidence: number | null;
     usefulness: number | null;
+    cefr_level: NormalizedImportCandidate['cefrLevel'];
     duplicate_hint: NormalizedImportCandidate['duplicateHint'];
     is_visually_concrete: boolean | null;
   }>;
@@ -210,6 +211,7 @@ export async function serverJobSnapshot(ownerId: string, jobId: string): Promise
         occurrence: row.source_occurrence,
         confidence: row.confidence,
         usefulness: row.usefulness,
+        cefrLevel: row.cefr_level,
         duplicateHint: row.duplicate_hint,
         isVisuallyConcrete: row.is_visually_concrete,
       })),
