@@ -13,7 +13,7 @@ Use this checklist on EAS development/beta builds before Gate D is declared comp
 - Disable reminders and verify no further local review notification is scheduled.
 - Deny notification permission on a fresh install/account and verify local study remains fully usable.
 - Play pronunciation audio, replay it, background the app, and verify audio does not continue unexpectedly.
-- Reopen offline after previously fetching supported pronunciation audio and verify cached playback when the platform cache still contains the asset; cache misses must degrade without blocking grading.
+- After a successful first fetch, relaunch the app without network access and verify pronunciation replays from the persistent app-local audio copy; a never-fetched or missing file must degrade without blocking grading.
 
 ## Android
 
@@ -26,7 +26,7 @@ Use this checklist on EAS development/beta builds before Gate D is declared comp
 - Disable reminders and confirm scheduled review notifications are removed.
 - Deny notification permission and verify the app records reminders as disabled while study remains usable.
 - Verify pronunciation playback/replay and background lifecycle behavior.
-- Verify supported previously fetched audio can play offline when still cached and that a missing cache never blocks grading.
+- After a successful first fetch, relaunch offline and verify supported pronunciation audio plays from persistent app-local storage; a never-fetched or missing file must never block grading.
 
 ## Cross-platform regression checks
 
@@ -36,6 +36,7 @@ Use this checklist on EAS development/beta builds before Gate D is declared comp
 - Recall modes do not autoplay answer-revealing pronunciation audio.
 - Listening mode is only offered when an audio source exists.
 - Notification and audio errors use recoverable UI and never corrupt ReviewEvents or UserCardState.
+- Pronunciation cache filenames are deterministic for the same source URI; storage limits/eviction policy are hardened in T041 without changing the playback contract.
 
 ## Evidence to retain for T043
 
