@@ -8,12 +8,15 @@ import { ActionButton, Surface } from '@/components/primitives';
 import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { HttpImportJobTransport } from '@/imports/http-transport';
 import { ImportJobRepository, ImportJobService } from '@/imports/jobs';
+import { IMPORT_POLICY } from '@/imports/policy';
 import { uploadImportFile } from '@/imports/upload-client';
 import { colors, spacing, typography } from '@/theme/tokens';
 
 function pdfFingerprint(asset: DocumentPicker.DocumentPickerAsset): string {
   return `pdf:${asset.name.trim().toLocaleLowerCase()}:${asset.size ?? 0}:${asset.lastModified ?? 0}`;
 }
+
+const PDF_LIMIT_MB = Math.round(IMPORT_POLICY.pdf.maxBytes / 1024 / 1024);
 
 export function PdfImportScreen() {
   const sqlite = useSQLiteContext();
@@ -24,7 +27,7 @@ export function PdfImportScreen() {
   async function choosePdf(): Promise<void> {
     if (!pair) return;
     if (ownerKey === 'guest') {
-      setMessage('Sign in before importing PDFs so the secure upload and server-side analysis can be tied to your account.');
+      setMessage('Sign in before importing PDFs so the secure upload and import job can be tied to your account.');
       return;
     }
     setBusy(true);
@@ -40,7 +43,7 @@ export function PdfImportScreen() {
       if (!asset) throw new Error('No PDF was selected.');
       const size = asset.size ?? 0;
       if (size <= 0) throw new Error('The selected PDF is empty or its size could not be read.');
-      if (size > 25 * 1024 * 1024) throw new Error('PDF imports are limited to 25 MB.');
+      if (size > IMPORT_POLICY.pdf.maxBytes) throw new Error(`PDF imports are limited to ${PDF_LIMIT_MB} MB.`);
 
       const repository = new ImportJobRepository(sqlite);
       const job = await repository.createOrReuse({
@@ -84,11 +87,11 @@ export function PdfImportScreen() {
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ gap: spacing.xs }}>
         <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Import a PDF</Text>
-        <Text style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Choose a text PDF up to 25 MB. The file uploads directly to temporary private Neon storage, then the server analyzes its short-lived URL and proposes vocabulary with page provenance.</Text>
+        <Text style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Choose a text PDF up to {PDF_LIMIT_MB} MB. The file uploads directly to temporary private storage, then Gemini proposes a bounded vocabulary set with page provenance.</Text>
       </View>
       <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
         <Text style={{ color: colors.ink, fontWeight: '700' }}>Text PDFs first</Text>
-        <Text style={{ color: colors.inkMuted, lineHeight: 22 }}>Scanned or encrypted PDFs are reported explicitly instead of silently producing weak vocabulary. The original upload is temporary and nothing enters your bank until you approve it.</Text>
+        <Text style={{ color: colors.inkMuted, lineHeight: 22 }}>Scanned or encrypted PDFs are reported explicitly instead of silently producing weak vocabulary. Photos and OCR use a separate optional import path.</Text>
         <ActionButton label={busy ? 'Analyzing PDF…' : 'Choose PDF'} disabled={busy || !pair} onPress={() => void choosePdf()} />
       </Surface>
       {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" style={{ color: colors.inkMuted, lineHeight: 22 }}>{message}</Text></Surface> : null}
