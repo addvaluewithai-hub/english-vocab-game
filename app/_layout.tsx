@@ -26,6 +26,7 @@ export default function RootLayout() {
           <Stack.Screen name="add" options={{ title: 'Vocabulary', presentation: 'modal' }} />
           <Stack.Screen name="vocabulary/[cardId]" options={{ title: 'Vocabulary' }} />
           <Stack.Screen name="collections" options={{ title: 'Collections' }} />
+          <Stack.Screen name="imports" options={{ title: 'Smart Imports' }} />
           <Stack.Screen name="import-staging" options={{ title: 'Review Import' }} />
           <Stack.Screen name="auth" options={{ title: 'Account', presentation: 'modal' }} />
           <Stack.Screen name="stats" options={{ title: 'Stats' }} />
