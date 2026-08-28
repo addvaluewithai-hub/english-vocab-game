@@ -34,7 +34,10 @@ This folder is the **source of truth for product development**. Every implementa
 - Expo Router
 - React Native Gesture Handler + Reanimated
 - Expo SQLite for local/offline data
-- Supabase/Postgres for cloud persistence, auth, storage, and server-side workflows
+- Neon Postgres for cloud persistence
+- Neon Auth as the preferred account/authentication layer
+- Authenticated server/Data API boundary between the mobile client and cloud data; privileged Postgres credentials never ship in the app
+- Object storage selected alongside Neon for imported files/media (prefer Neon Object Storage when it fits the implementation requirements)
 - EAS development builds, beta distribution, and production builds
 - Scheduler abstraction: simple scheduler first, FSRS-compatible later
 
@@ -51,16 +54,16 @@ This folder is the **source of truth for product development**. Every implementa
 
 | ID | Task | Priority | Depends on | Gate | Status |
 |---|---|---:|---|---|---|
-| T001 | Product contract, domain glossary, and architecture decisions | P0 | — | A | READY |
-| T002 | Expo TypeScript scaffold and navigation shell | P0 | T001 | A | BACKLOG |
-| T003 | Design system and reusable interaction primitives | P0 | T002 | A | BACKLOG |
-| T004 | Local domain model, SQLite schema, migrations, and repository layer | P0 | T001, T002 | B | BACKLOG |
-| T005 | Deterministic demo/seed data and developer utilities | P1 | T004 | A/B | BACKLOG |
-| T006 | Study queue and session state service | P0 | T004, T005 | B | BACKLOG |
-| T007 | Vocabulary card front/back and flip interaction | P0 | T003, T006 | A | BACKLOG |
-| T008 | Swipe grading, buttons, gesture feedback, and haptics | P0 | T007 | A | BACKLOG |
-| T009 | Review event persistence and simple scheduling engine | P0 | T006, T008 | B | BACKLOG |
-| T010 | Study progress, completion, due/empty states, and retry flow | P0 | T009 | B | BACKLOG |
+| T001 | Product contract, domain glossary, and architecture decisions | P0 | — | A | IN_PROGRESS |
+| T002 | Expo TypeScript scaffold and navigation shell | P0 | T001 | A | IN_PROGRESS |
+| T003 | Design system and reusable interaction primitives | P0 | T002 | A | IN_PROGRESS |
+| T004 | Local domain model, SQLite schema, migrations, and repository layer | P0 | T001, T002 | B | IN_PROGRESS |
+| T005 | Deterministic demo/seed data and developer utilities | P1 | T004 | A/B | IN_PROGRESS |
+| T006 | Study queue and session state service | P0 | T004, T005 | B | IN_PROGRESS |
+| T007 | Vocabulary card front/back and flip interaction | P0 | T003, T006 | A | IN_PROGRESS |
+| T008 | Swipe grading, buttons, gesture feedback, and haptics | P0 | T007 | A | IN_PROGRESS |
+| T009 | Review event persistence and simple scheduling engine | P0 | T006, T008 | B | IN_PROGRESS |
+| T010 | Study progress, completion, due/empty states, and retry flow | P0 | T009 | B | IN_PROGRESS |
 | T011 | Core study loop polish, accessibility, and device responsiveness | P0 | T007, T008, T010 | A/B | BACKLOG |
 | T012 | Vocabulary bank browse, search, filter, and state grouping | P0 | T003, T004 | B | BACKLOG |
 | T013 | Manual term/sense/context create and edit flow | P0 | T004, T012 | B | BACKLOG |
@@ -68,8 +71,8 @@ This folder is the **source of truth for product development**. Every implementa
 | T015 | Vocabulary detail, review history, and source-context screen | P1 | T009, T012, T014 | B | BACKLOG |
 | T016 | Import staging and review-before-add UX | P1 | T012, T014 | E | BACKLOG |
 | T017 | Language-pair onboarding and app settings | P1 | T002, T004 | B/C | BACKLOG |
-| T018 | Supabase schema, migrations, storage layout, and RLS policies | P0 | T004 | C | BACKLOG |
-| T019 | Authentication and guest-to-account migration | P1 | T017, T018 | C | BACKLOG |
+| T018 | Neon cloud schema, migrations, access control, and storage strategy | P0 | T004 | C | BACKLOG |
+| T019 | Neon Auth and guest-to-account migration | P1 | T017, T018 | C | BACKLOG |
 | T020 | Offline sync protocol: outbox, versions, tombstones, and sync contract | P0 | T004, T018 | C | BACKLOG |
 | T021 | Offline-first sync engine implementation | P0 | T020 | C | BACKLOG |
 | T022 | Conflict handling, retry/recovery, and sync-status UX | P0 | T021 | C | BACKLOG |
