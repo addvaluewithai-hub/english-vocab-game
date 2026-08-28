@@ -38,10 +38,18 @@ function isDue(card: StudyCard, now: Date): boolean {
   if (!card.state || !card.state.nextDueAt) return true;
   return new Date(card.state.nextDueAt).getTime() <= now.getTime();
 }
+
 function sortCandidates(a: StudyCard, b: StudyCard): number {
-  const aDue = a.state?.nextDueAt ?? a.createdAt;
-  const bDue = b.state?.nextDueAt ?? b.createdAt;
-  return aDue.localeCompare(bDue) || a.cardId.localeCompare(b.cardId);
+  const aIsReview = Boolean(a.state?.nextDueAt);
+  const bIsReview = Boolean(b.state?.nextDueAt);
+
+  // Protect retention first: existing due reviews are shown before introducing
+  // new material. Within each group, preserve a deterministic oldest-first order.
+  if (aIsReview !== bIsReview) return aIsReview ? -1 : 1;
+
+  const aOrder = a.state?.nextDueAt ?? a.createdAt;
+  const bOrder = b.state?.nextDueAt ?? b.createdAt;
+  return aOrder.localeCompare(bOrder) || a.cardId.localeCompare(b.cardId);
 }
 
 export class StudySession {
@@ -57,7 +65,11 @@ export class StudySession {
     private readonly states: CardStateStore,
     private readonly scheduler: ReviewScheduler,
   ) {
-    this.queue = initialCards.map((card, index) => ({ queueId: `${sessionId}:initial:${index}:${card.cardId}`, card, isRetry: false }));
+    this.queue = initialCards.map((card, index) => ({
+      queueId: `${sessionId}:initial:${index}:${card.cardId}`,
+      card,
+      isRetry: false,
+    }));
   }
 
   get snapshot(): StudySessionSnapshot {
@@ -74,9 +86,14 @@ export class StudySession {
     };
   }
 
-  async gradeCurrent(grade: ReviewGrade, responseMs: number | null, now = new Date()): Promise<boolean> {
+  async gradeCurrent(
+    grade: ReviewGrade,
+    responseMs: number | null,
+    now = new Date(),
+  ): Promise<boolean> {
     const item = this.queue[this.cursor];
     if (!item) return false;
+
     const event: ReviewEvent = {
       id: `review:${item.queueId}`,
       cardId: item.card.cardId,
@@ -107,11 +124,20 @@ export class StudySession {
     if (grade === 'KNEW') this.summary.knew += 1;
     else this.summary.forgot += 1;
 
-    if (grade === 'FORGOT' && !item.isRetry && !this.retriedCards.has(item.card.cardId)) {
+    if (
+      grade === 'FORGOT' &&
+      !item.isRetry &&
+      !this.retriedCards.has(item.card.cardId)
+    ) {
       this.retriedCards.add(item.card.cardId);
       this.summary.retries += 1;
-      this.queue.push({ queueId: `${this.sessionId}:retry:${item.card.cardId}`, card: item.card, isRetry: true });
+      this.queue.push({
+        queueId: `${this.sessionId}:retry:${item.card.cardId}`,
+        card: item.card,
+        isRetry: true,
+      });
     }
+
     this.cursor += 1;
     return true;
   }
@@ -128,6 +154,12 @@ export class StudySessionService {
   async createSession(now = new Date()): Promise<StudySession> {
     const candidates = await this.source.listStudyCandidates();
     const due = candidates.filter((card) => isDue(card, now)).sort(sortCandidates);
-    return new StudySession(createId('session'), due, this.events, this.states, this.scheduler);
+    return new StudySession(
+      createId('session'),
+      due,
+      this.events,
+      this.states,
+      this.scheduler,
+    );
   }
 }
