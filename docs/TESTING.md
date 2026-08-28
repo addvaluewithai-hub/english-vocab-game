@@ -6,15 +6,28 @@ The project is intentionally testable before store release. The first supported 
 
 - Owner: `dragon2026s-team`
 - Slug: `english-vocab`
+- Project ID: `63fa98c3-c2ea-4146-95ea-a104d116f773`
 - Dashboard: `https://expo.dev/accounts/dragon2026s-team/projects/english-vocab`
 
-`app.json` intentionally contains the owner and slug but does not guess an EAS project UUID. Before the first build, read the existing project's **Project ID** from Expo Project Settings → General and link this repository to that exact project. Prefer linking by exact ID so a second project cannot be created accidentally.
+`app.json` is linked to this exact existing EAS project through `expo.extra.eas.projectId`, so preview builds must not create a second Expo project.
 
-## Preview profile
+## First preview build
 
-`eas.json` defines a `preview` profile using internal distribution. Android builds use APK format so they can be installed directly. iOS preview builds use internal distribution and may require device registration / Apple signing setup on the first run.
+The preferred no-local-setup path is Expo Dashboard → **Builds** → **Build from GitHub**:
 
-A manual EAS Workflow exists at `.eas/workflows/preview-build.yml` and builds both platforms using the preview environment.
+- Git ref: `build/tasks-31-40`
+- Platform: Android for the fastest first install
+- Build profile: `preview`
+
+`eas.json` defines `preview` as internal distribution. Android uses APK format so it can be installed directly from the EAS build artifact. iOS preview builds use internal distribution and may require device registration / Apple signing setup on the first run.
+
+A manual EAS Workflow also exists at `.eas/workflows/preview-build.yml` and builds Android and iOS with the preview environment.
+
+## Server-backed smart imports
+
+Expo Router API routes require a deployed server bundle. `app.json` uses `web.output: server`, and CI validates the web/server export in addition to Android and iOS exports.
+
+Before testing prose/PDF/YouTube smart imports, deploy the API routes to EAS Hosting and configure the preview server environment. The native preview build can still be used for all local/offline features before this step.
 
 ## What to test in the first preview
 
