@@ -1,5 +1,6 @@
 import type { ImportJobSubmission, RemoteImportJobSnapshot } from '@/imports/contracts';
 import { extractPdfVocabulary } from '@/imports/pdf-server';
+import { IMPORT_POLICY } from '@/imports/policy';
 import { isLearnerLevel } from '@/imports/ranking';
 import { extractTextImport } from '@/imports/text-server';
 import { normalizeYouTubeUrl } from '@/imports/youtube';
@@ -12,6 +13,7 @@ import {
   markServerJobProcessing,
   serverJobSnapshot,
   storeServerCandidates,
+  type ServerImportJob,
 } from '@/server/import-job-store';
 import { importObjectKey } from '@/server/object-storage';
 
@@ -51,6 +53,7 @@ function errorResponse(caught: unknown): Response {
   if (message === 'AUTH_REQUIRED') return Response.json({ message: 'Sign in to use cloud-assisted imports.' }, { status: 401 });
   if (message === 'LANGUAGE_PAIR_FORBIDDEN') return Response.json({ message: 'This language pair is not available to the signed-in account.' }, { status: 403 });
   if (message.startsWith('AUTH_VALIDATION_FAILED:')) return Response.json({ message: 'Could not verify the signed-in account.' }, { status: 401 });
+  if (message === 'IMPORT_RETRY_REQUIRED') return Response.json({ message: 'Reopen this failed or cancelled import from Smart Imports before resubmitting the source.' }, { status: 409 });
   if (message === 'YOUTUBE_UNAVAILABLE_OR_NOT_PUBLIC') {
     return Response.json({ message: 'This video is unavailable, private, unlisted, or cannot be processed by the current YouTube importer.' }, { status: 422 });
   }
@@ -64,7 +67,7 @@ function errorResponse(caught: unknown): Response {
     return Response.json({ message: 'No useful vocabulary candidates were found in this PDF.' }, { status: 422 });
   }
   if (message === 'PDF_SIZE_LIMIT') {
-    return Response.json({ message: 'PDF imports are limited to 25 MB.' }, { status: 413 });
+    return Response.json({ message: `PDF imports are limited to ${Math.round(IMPORT_POLICY.pdf.maxBytes / 1024 / 1024)} MB.` }, { status: 413 });
   }
   if (message === 'SERVER_DATA_API_NOT_CONFIGURED' || message === 'SERVER_DATABASE_NOT_CONFIGURED'
     || message === 'AI_IMPORT_NOT_CONFIGURED' || message.includes('not configured')) {
@@ -82,6 +85,21 @@ function errorResponse(caught: unknown): Response {
   return Response.json({ message: 'Smart import could not process this source right now.' }, { status: 502 });
 }
 
+async function existingTerminalOrActive(job: ServerImportJob): Promise<RemoteImportJobSnapshot | null> {
+  if (job.status === 'QUEUED') return null;
+  if (job.status === 'FAILED' || job.status === 'CANCELLED') throw new Error('IMPORT_RETRY_REQUIRED');
+  return serverJobSnapshot(job.ownerId, job.id);
+}
+
+async function beginProcessing(job: ServerImportJob, providerKind: string, metrics?: Record<string, unknown>): Promise<boolean> {
+  return markServerJobProcessing({
+    ownerId: job.ownerId,
+    id: job.id,
+    providerKind,
+    ...(metrics ? { metrics } : {}),
+  });
+}
+
 async function processText(
   body: ImportJobSubmission,
   pair: Awaited<ReturnType<typeof authorizeLanguagePair>>,
@@ -89,6 +107,7 @@ async function processText(
 ): Promise<RemoteImportJobSnapshot> {
   const payload = textPayload(body.sourcePayload);
   if (!payload) throw new Error('TEXT_PAYLOAD_REQUIRED');
+  if (payload.text.length > IMPORT_POLICY.text.maxCharacters) throw new Error(`Text is limited to ${IMPORT_POLICY.text.maxCharacters} characters.`);
   const job = await createOrGetServerImportJob({
     id: body.localJobId,
     ownerId: pair.ownerId,
@@ -98,11 +117,13 @@ async function processText(
     sourceLabel: body.sourceLabel,
     sourcePayload: { charCount: payload.text.length, inputKind: 'PROSE', learnerLevel: body.learnerLevel },
   });
-  if (job.status === 'NEEDS_REVIEW' || job.status === 'COMPLETED') {
-    const existing = await serverJobSnapshot(pair.ownerId, job.id);
-    if (existing) return existing;
+  const existing = await existingTerminalOrActive(job);
+  if (existing) return existing;
+  if (!await beginProcessing(job, 'GEMINI_ROUTER')) {
+    const concurrent = await serverJobSnapshot(pair.ownerId, job.id);
+    if (concurrent) return concurrent;
+    throw new Error('SERVER_JOB_STATE_CHANGED');
   }
-  await markServerJobProcessing({ ownerId: pair.ownerId, id: job.id, providerKind: 'GEMINI_ROUTER' });
   try {
     const extraction = await extractTextImport({
       text: payload.text,
@@ -160,12 +181,13 @@ async function processYouTube(
     sourceLabel: body.sourceLabel,
     sourcePayload: { videoId: source.videoId, canonicalUrl: source.canonicalUrl, learnerLevel: body.learnerLevel },
   });
-  if (job.status === 'NEEDS_REVIEW' || job.status === 'COMPLETED') {
-    const existing = await serverJobSnapshot(pair.ownerId, job.id);
-    if (existing) return existing;
+  const existing = await existingTerminalOrActive(job);
+  if (existing) return existing;
+  if (!await beginProcessing(job, 'GEMINI_YOUTUBE_ROUTER')) {
+    const concurrent = await serverJobSnapshot(pair.ownerId, job.id);
+    if (concurrent) return concurrent;
+    throw new Error('SERVER_JOB_STATE_CHANGED');
   }
-
-  await markServerJobProcessing({ ownerId: pair.ownerId, id: job.id, providerKind: 'GEMINI_YOUTUBE_ROUTER' });
   try {
     const extraction = await extractYouTubeVocabulary({
       url: source.canonicalUrl,
@@ -210,7 +232,7 @@ async function processPdf(
 ): Promise<RemoteImportJobSnapshot> {
   const payload = filePayload(body.sourcePayload);
   if (!payload || payload.contentType !== 'application/pdf') throw new Error('PDF_PAYLOAD_REQUIRED');
-  if (payload.size <= 0 || payload.size > 25 * 1024 * 1024) throw new Error('PDF_SIZE_LIMIT');
+  if (payload.size <= 0 || payload.size > IMPORT_POLICY.pdf.maxBytes) throw new Error('PDF_SIZE_LIMIT');
   const expectedKey = importObjectKey({
     ownerId: pair.ownerId,
     languagePairId: pair.id,
@@ -219,7 +241,7 @@ async function processPdf(
   });
   if (payload.objectKey !== expectedKey) throw new Error('IMPORT_ARTIFACT_FORBIDDEN');
 
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + IMPORT_POLICY.pdf.artifactRetentionHours * 60 * 60 * 1000).toISOString();
   const job = await createOrGetServerImportJob({
     id: body.localJobId,
     ownerId: pair.ownerId,
@@ -231,17 +253,13 @@ async function processPdf(
     artifactKey: payload.objectKey,
   });
   await setServerJobArtifact({ ownerId: pair.ownerId, id: job.id, artifactKey: payload.objectKey, expiresAt });
-  if (job.status === 'NEEDS_REVIEW' || job.status === 'COMPLETED') {
-    const existing = await serverJobSnapshot(pair.ownerId, job.id);
-    if (existing) return existing;
+  const existing = await existingTerminalOrActive(job);
+  if (existing) return existing;
+  if (!await beginProcessing(job, 'GEMINI_PDF_URL_CONTEXT', { inputBytes: payload.size, learnerLevel: body.learnerLevel })) {
+    const concurrent = await serverJobSnapshot(pair.ownerId, job.id);
+    if (concurrent) return concurrent;
+    throw new Error('SERVER_JOB_STATE_CHANGED');
   }
-
-  await markServerJobProcessing({
-    ownerId: pair.ownerId,
-    id: job.id,
-    providerKind: 'GEMINI_PDF_URL_CONTEXT',
-    metrics: { inputBytes: payload.size, learnerLevel: body.learnerLevel },
-  });
   try {
     const extraction = await extractPdfVocabulary({
       objectKey: payload.objectKey,
