@@ -1,5 +1,11 @@
 import type { NormalizedImportCandidate } from './contracts';
 import { createImportReadUrl, IMPORT_BUCKET } from '@/server/object-storage';
+import {
+  GEMINI_URL_MODEL_CHAIN,
+  routeGeminiContent,
+  type GeminiAttempt,
+  type GeminiUsage,
+} from '@/server/gemini-router';
 
 export type PdfDocumentStatus = 'TEXT_PDF' | 'SCANNED_UNSUPPORTED' | 'ENCRYPTED_OR_UNREADABLE';
 
@@ -20,63 +26,76 @@ interface PdfResult {
   }>;
 }
 
-const PDF_CANDIDATE_LIMIT = 40;
-
-const pdfSchema = {
-  type: 'object',
-  properties: {
-    documentStatus: { type: 'string', enum: ['TEXT_PDF', 'SCANNED_UNSUPPORTED', 'ENCRYPTED_OR_UNREADABLE'] },
-    pageCount: { type: ['integer', 'null'], minimum: 1 },
-    candidates: {
-      type: 'array',
-      maxItems: PDF_CANDIDATE_LIMIT,
-      items: {
-        type: 'object',
-        properties: {
-          candidateKey: { type: 'string' },
-          term: { type: 'string' },
-          translation: { type: 'string' },
-          definition: { type: ['string', 'null'] },
-          partOfSpeech: { type: ['string', 'null'] },
-          context: { type: ['string', 'null'] },
-          pageNumber: { type: ['integer', 'null'], minimum: 1 },
-          confidence: { type: 'number', minimum: 0, maximum: 1 },
-          usefulness: { type: 'number', minimum: 0, maximum: 1 },
-          isVisuallyConcrete: { type: ['boolean', 'null'] },
-        },
-        required: ['candidateKey','term','translation','definition','partOfSpeech','context','pageNumber','confidence','usefulness','isVisuallyConcrete'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['documentStatus', 'pageCount', 'candidates'],
-  additionalProperties: false,
-} as const;
-
-function apiKey(): string {
-  const value = process.env.OPENAI_API_KEY?.trim();
-  if (!value) throw new Error('AI_IMPORT_NOT_CONFIGURED');
-  return value;
+export interface PdfExtraction {
+  candidates: NormalizedImportCandidate[];
+  pageCount: number | null;
+  model: string;
+  fallbackCount: number;
+  attempts: GeminiAttempt[];
+  usage?: GeminiUsage;
 }
 
-function model(): string {
-  return process.env.OPENAI_IMPORT_MODEL?.trim() || 'gpt-5.6-luna';
+export const PDF_CANDIDATE_LIMIT = 40;
+
+function parseJson(text: string): unknown {
+  const trimmed = text.trim();
+  const clean = trimmed.startsWith('```')
+    ? trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    : trimmed;
+  return JSON.parse(clean);
 }
 
-function outputText(body: Record<string, unknown>): string | null {
-  if (typeof body.output_text === 'string') return body.output_text;
-  if (!Array.isArray(body.output)) return null;
-  for (const item of body.output) {
-    if (!item || typeof item !== 'object') continue;
-    const content = (item as Record<string, unknown>).content;
-    if (!Array.isArray(content)) continue;
-    for (const part of content) {
-      if (!part || typeof part !== 'object') continue;
-      const piece = part as Record<string, unknown>;
-      if (piece.type === 'output_text' && typeof piece.text === 'string') return piece.text;
-    }
+function score(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(1, value))
+    : null;
+}
+
+function nullableText(value: unknown): string | null {
+  return typeof value === 'string' ? value.trim() || null : null;
+}
+
+function parsePdfResult(text: string): PdfResult {
+  const parsed = parseJson(text);
+  if (!parsed || typeof parsed !== 'object') throw new Error('PDF_INVALID_MODEL_OUTPUT');
+  const record = parsed as Record<string, unknown>;
+  const documentStatus = record.documentStatus;
+  if (!['TEXT_PDF', 'SCANNED_UNSUPPORTED', 'ENCRYPTED_OR_UNREADABLE'].includes(String(documentStatus))) {
+    throw new Error('PDF_INVALID_MODEL_OUTPUT');
   }
-  return null;
+  const rawCandidates = Array.isArray(record.candidates) ? record.candidates : [];
+  const candidates: PdfResult['candidates'] = [];
+  for (const item of rawCandidates) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.term !== 'string' || typeof row.translation !== 'string') continue;
+    const confidence = score(row.confidence);
+    const usefulness = score(row.usefulness);
+    if (confidence === null || usefulness === null) continue;
+    const pageNumber = typeof row.pageNumber === 'number' && Number.isInteger(row.pageNumber) && row.pageNumber > 0
+      ? row.pageNumber
+      : null;
+    candidates.push({
+      candidateKey: typeof row.candidateKey === 'string' ? row.candidateKey.trim() : '',
+      term: row.term,
+      translation: row.translation,
+      definition: nullableText(row.definition),
+      partOfSpeech: nullableText(row.partOfSpeech),
+      context: nullableText(row.context),
+      pageNumber,
+      confidence,
+      usefulness,
+      isVisuallyConcrete: typeof row.isVisuallyConcrete === 'boolean' ? row.isVisuallyConcrete : null,
+    });
+    if (candidates.length >= PDF_CANDIDATE_LIMIT) break;
+  }
+  return {
+    documentStatus: String(documentStatus) as PdfDocumentStatus,
+    pageCount: typeof record.pageCount === 'number' && Number.isInteger(record.pageCount) && record.pageCount > 0
+      ? record.pageCount
+      : null,
+    candidates,
+  };
 }
 
 function normalizedResult(result: PdfResult, objectKey: string): NormalizedImportCandidate[] {
@@ -86,114 +105,86 @@ function normalizedResult(result: PdfResult, objectKey: string): NormalizedImpor
   const output: NormalizedImportCandidate[] = [];
   for (const row of result.candidates) {
     const term = row.term.trim().replace(/\s+/g, ' ');
-    const translation = row.translation.trim();
+    const translation = row.translation.trim().replace(/\s+/g, ' ');
     if (!term || !translation) continue;
     const identity = `${term.toLocaleLowerCase()}\u0000${translation.toLocaleLowerCase()}`;
     if (seen.has(identity)) continue;
     seen.add(identity);
-    const pageNumber = row.pageNumber && row.pageNumber > 0 ? row.pageNumber : null;
     output.push({
-      candidateKey: row.candidateKey.trim() || `pdf-${output.length + 1}`,
+      candidateKey: row.candidateKey || `pdf-${output.length + 1}`,
       term,
       translation,
-      definition: row.definition?.trim() || null,
-      partOfSpeech: row.partOfSpeech?.trim() || null,
-      context: row.context?.trim() || null,
+      definition: row.definition,
+      partOfSpeech: row.partOfSpeech,
+      context: row.context,
       occurrence: {
-        sentence: row.context?.trim() || null,
+        sentence: row.context,
         sourceUri: `neon-object://${IMPORT_BUCKET}/${objectKey}`,
-        locator: pageNumber ? `page:${pageNumber}` : null,
-        pageNumber,
+        locator: row.pageNumber === null ? null : `page:${row.pageNumber}`,
+        pageNumber: row.pageNumber,
         timestampSeconds: null,
       },
-      confidence: Math.max(0, Math.min(1, row.confidence)),
-      usefulness: Math.max(0, Math.min(1, row.usefulness)),
+      confidence: row.confidence,
+      usefulness: row.usefulness,
       duplicateHint: null,
       isVisuallyConcrete: row.isVisuallyConcrete,
     });
-    if (output.length >= PDF_CANDIDATE_LIMIT) break;
   }
   if (!output.length) throw new Error('PDF_NO_CANDIDATES');
   return output;
 }
 
-export async function startPdfExtraction(input: {
-  jobId: string;
+export async function extractPdfVocabulary(input: {
   objectKey: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
-}): Promise<string> {
+}): Promise<PdfExtraction> {
   const fileUrl = await createImportReadUrl(input.objectKey);
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: model(),
-      background: true,
-      store: true,
-      reasoning: { effort: 'low' },
-      metadata: { import_job_id: input.jobId, source_type: 'PDF' },
-      instructions: [
-        'Analyze this PDF for vocabulary learning. Treat this task as text-PDF import first.',
-        'If the PDF is primarily scanned images without a usable text layer, return SCANNED_UNSUPPORTED and no candidates.',
-        'If encrypted, inaccessible, malformed, or unreadable, return ENCRYPTED_OR_UNREADABLE and no candidates.',
-        `Vocabulary is in ${input.targetLanguageCode}; meanings/translations should be in ${input.referenceLanguageCode}.`,
-        `Return at most ${PDF_CANDIDATE_LIMIT} high-value words or phrases, not every token.`,
-        'For long documents, reason page-range by page-range, consolidate repeated vocabulary globally, and keep the best representative occurrence.',
-        'Use the sense from the cited page context. Preserve multi-word expressions. Include a correct 1-based pageNumber whenever possible.',
-        'Never invent page numbers or source sentences; use null and lower confidence when uncertain.',
-      ].join('\n'),
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'input_text', text: 'Extract a curated vocabulary set with page provenance from this PDF.' },
-          { type: 'input_file', file_url: fileUrl, detail: 'auto' },
-        ],
-      }],
-      text: { format: { type: 'json_schema', name: 'pdf_vocabulary_result', strict: true, schema: pdfSchema } },
-    }),
-  });
-  const body = await response.json() as Record<string, unknown>;
-  if (!response.ok || typeof body.id !== 'string') {
-    const error = body.error && typeof body.error === 'object' ? body.error as Record<string, unknown> : null;
-    throw new Error(`PDF_PROVIDER_FAILED:${String(error?.message ?? response.status)}`);
-  }
-  return body.id;
-}
+  const system = 'You are a conservative vocabulary curator. Inspect only the supplied PDF URL. Output machine-readable JSON only and prefer precision over candidate count.';
+  const prompt = [
+    `Open and analyze this PDF URL: ${fileUrl}`,
+    'Treat this as a text-PDF import first.',
+    'If the document is primarily scanned images without a usable text layer, set documentStatus to SCANNED_UNSUPPORTED and return no candidates.',
+    'If it is encrypted, inaccessible, malformed, or unreadable, set documentStatus to ENCRYPTED_OR_UNREADABLE and return no candidates.',
+    `Vocabulary is in ${input.targetLanguageCode}; meanings/translations must be in ${input.referenceLanguageCode}.`,
+    `Return at most ${PDF_CANDIDATE_LIMIT} high-value words or multi-word phrases, not every token.`,
+    'For long documents, inspect representative sections across the document, consolidate repeated vocabulary globally, and keep the best representative occurrence.',
+    'Use the sense from the cited page context. Preserve multi-word expressions.',
+    'pageNumber must be the correct 1-based PDF page for the representative occurrence when it can be verified; otherwise use null.',
+    'Context must be a short exact or minimally normalized sentence from that page when confidently available; otherwise null.',
+    'Never invent page numbers or quotations. Lower confidence when uncertain.',
+    'Return JSON only, no Markdown, in this shape:',
+    '{"documentStatus":"TEXT_PDF","pageCount":12,"candidates":[{"candidateKey":"...","term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"pageNumber":3,"confidence":0.9,"usefulness":0.9,"isVisuallyConcrete":null}]}',
+  ].join('\n');
 
-export async function pollPdfExtraction(providerJobId: string, objectKey: string): Promise<{
-  status: 'PROCESSING' | 'COMPLETED';
-  candidates?: NormalizedImportCandidate[];
-  usage?: Record<string, unknown>;
-}> {
-  const response = await fetch(`https://api.openai.com/v1/responses/${encodeURIComponent(providerJobId)}`, {
-    headers: { Authorization: `Bearer ${apiKey()}` },
+  const routed = await routeGeminiContent({
+    apiKey: process.env.GEMINI_API_KEY,
+    system,
+    parts: [{ text: prompt }],
+    tools: [{ url_context: {} }],
+    task: 'vocabulary_pdf_import',
+    models: GEMINI_URL_MODEL_CHAIN,
+    maxOutputTokens: 3_600,
+    attemptTimeoutMs: 20_000,
+    overallTimeoutMs: 44_000,
   });
-  const body = await response.json() as Record<string, unknown>;
-  if (!response.ok) throw new Error(`PDF_PROVIDER_POLL_FAILED:${response.status}`);
-  const status = String(body.status ?? '');
-  if (status === 'queued' || status === 'in_progress') return { status: 'PROCESSING' };
-  if (status === 'cancelled') throw new Error('IMPORT_CANCELLED');
-  if (status === 'failed' || status === 'incomplete') {
-    const error = body.error && typeof body.error === 'object' ? body.error as Record<string, unknown> : null;
-    throw new Error(`PDF_PROVIDER_FAILED:${String(error?.message ?? status)}`);
+
+  if (!routed.ok) {
+    if (routed.error === 'missing-api-key') throw new Error('AI_IMPORT_NOT_CONFIGURED');
+    if (routed.error === 'provider-rejected-request') {
+      if ([400, 403, 404].includes(routed.status ?? 0)) throw new Error('PDF_ENCRYPTED_OR_UNREADABLE');
+      throw new Error(`PDF_PROVIDER_REJECTED:${routed.status ?? 'unknown'}`);
+    }
+    throw new Error('PDF_PROVIDER_UNAVAILABLE');
   }
-  if (status !== 'completed') return { status: 'PROCESSING' };
-  const text = outputText(body);
-  if (!text) throw new Error('PDF_PROVIDER_EMPTY');
-  const parsed = JSON.parse(text) as PdfResult;
-  const usage = body.usage && typeof body.usage === 'object' ? body.usage as Record<string, unknown> : undefined;
+
+  const parsed = parsePdfResult(routed.text);
   return {
-    status: 'COMPLETED',
-    candidates: normalizedResult(parsed, objectKey),
-    ...(usage ? { usage } : {}),
+    candidates: normalizedResult(parsed, input.objectKey),
+    pageCount: parsed.pageCount,
+    model: routed.model,
+    fallbackCount: routed.fallbackCount,
+    attempts: routed.attempts,
+    ...(routed.usage ? { usage: routed.usage } : {}),
   };
-}
-
-export async function cancelPdfExtraction(providerJobId: string): Promise<void> {
-  const response = await fetch(`https://api.openai.com/v1/responses/${encodeURIComponent(providerJobId)}/cancel`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey()}` },
-  });
-  if (!response.ok && response.status !== 409) throw new Error(`PDF_PROVIDER_CANCEL_FAILED:${response.status}`);
 }
