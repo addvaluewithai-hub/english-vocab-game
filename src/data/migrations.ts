@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS review_events (
 CREATE INDEX IF NOT EXISTS idx_review_events_card_time ON review_events(card_id, reviewed_at, id);
 `;
 
-export const DATABASE_MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
+export const DATABASE_MIGRATIONS: readonly { version: number; sql: string }[] = [
   { version: 1, sql: MIGRATION_001 },
 ];
 
