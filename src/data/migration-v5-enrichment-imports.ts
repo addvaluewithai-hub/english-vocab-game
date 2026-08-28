@@ -22,9 +22,11 @@ CREATE TABLE IF NOT EXISTS import_jobs (
   source_label TEXT,
   status TEXT NOT NULL CHECK(status IN ('QUEUED','PROCESSING','NEEDS_REVIEW','COMPLETED','FAILED','CANCELLED')),
   server_job_id TEXT,
+  result_json TEXT,
   error_code TEXT,
   error_message TEXT,
   retry_count INTEGER NOT NULL DEFAULT 0,
+  artifact_expires_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(language_pair_id, source_type, source_fingerprint)
