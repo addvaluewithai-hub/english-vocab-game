@@ -1,37 +1,38 @@
 # Phase 04 — Cloud, Authentication, and Offline Sync
 
-Goal: keep the study experience local-first while adding secure accounts, cloud backup, and reliable multi-device synchronization.
+Goal: keep the study experience local-first while adding secure accounts, cloud backup, and reliable multi-device synchronization on Neon.
 
 ---
 
-## T018 — Supabase schema, migrations, storage layout, and RLS policies
+## T018 — Neon cloud schema, migrations, access control, and storage strategy
 
 **Priority:** P0  
 **Dependencies:** T004
 
 ### Scope
-- Translate the approved local domain into a Supabase/Postgres cloud schema without collapsing Term/Sense/Card boundaries.
+- Translate the approved local domain into a Neon Postgres cloud schema without collapsing Term/Sense/Card boundaries.
 - Define stable IDs, ownership fields, timestamps, versions, and deletion/tombstone semantics needed for sync.
-- Create migration files rather than dashboard-only schema changes.
-- Design storage buckets/paths for future user media and imported documents.
-- Implement Row Level Security so users can access only their own private learning data and permitted shared/public content.
-- Add focused policy tests or verification scripts for common and adversarial access cases.
+- Create version-controlled migration files rather than dashboard-only schema changes; test risky schema changes on Neon branches before production.
+- Define the object/file storage strategy for future user media and imported documents, using Neon Object Storage when it fits the implementation requirements or a compatible dedicated object store when it does not.
+- Define secure client access: never ship a privileged Postgres connection string in the Expo app; use Neon Auth plus an authenticated server/Data API boundary.
+- Implement and verify row-level/user ownership protections for private learning data where the selected Neon access path supports them.
 
 ### Acceptance criteria
-- Cloud schema can be reproduced from migrations on a fresh project.
-- RLS is enabled and verified for all user-owned tables/storage paths.
-- A user cannot read/write another user's private cards, reviews, sources, or media.
+- Cloud schema can be reproduced from migrations on a fresh Neon branch/project.
+- Private user-owned records have verified access controls under the chosen authenticated data-access path.
+- A user cannot read/write another user's private cards, reviews, sources, or media metadata.
 - Local and cloud entity identifiers/version fields support deterministic synchronization.
+- Mobile code contains no privileged database credentials.
 
 ---
 
-## T019 — Authentication and guest-to-account migration
+## T019 — Neon Auth and guest-to-account migration
 
 **Priority:** P1  
 **Dependencies:** T017, T018
 
 ### Scope
-- Add a minimal authentication flow suitable for the initial product.
+- Add a minimal authentication flow using Neon Auth unless implementation evidence justifies a different compatible provider.
 - Keep local guest usage possible until an account is necessary for cloud features.
 - Define and implement guest-data claiming/migration when a user signs in or creates an account.
 - Handle sign-out without silently deleting local learning data.
@@ -71,11 +72,11 @@ Goal: keep the study experience local-first while adding secure accounts, cloud 
 **Dependencies:** T020
 
 ### Scope
-- Implement local outbox writes and background/foreground synchronization against Supabase.
+- Implement local outbox writes and background/foreground synchronization against the authenticated Neon cloud boundary.
 - Push local mutations idempotently and pull remote changes from a checkpoint/cursor.
 - Keep SQLite as the immediate UI/read source so study interactions never wait on the network.
 - Sync review events, vocabulary content, collections, settings, and source metadata covered by the cloud schema.
-- Use appropriate fetch/data-layer patterns and centralize network error handling.
+- Use centralized fetch/data-layer patterns and centralized network/auth error handling.
 
 ### Acceptance criteria
 - User can make changes offline, restart the app, reconnect, and sync without data loss.
@@ -111,7 +112,7 @@ Goal: keep the study experience local-first while adding secure accounts, cloud 
 **Dependencies:** T019, T022
 
 ### Scope
-- Verify clean-device login restores the user's supported cloud data into a fresh local database.
+- Verify clean-device login restores the user's supported Neon cloud data into a fresh local database.
 - Verify a second device can study and later converge with the first without duplicated reviews.
 - Add a deliberate local reset/re-download recovery path for corrupted or unrecoverable local state.
 - Verify media/source metadata handling under restore, including absent optional cached files.
