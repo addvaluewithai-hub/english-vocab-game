@@ -35,12 +35,14 @@ Goal: turn material the learner already consumes into curated, contextual vocabu
 - Match against existing Term/Sense data and flag exact/likely duplicates.
 - Propose sense, concise translation/definition, and a useful context sentence when source text provides one.
 - Send results through generic import staging.
+- Route prose enrichment through the server-side Gemma/Gemini quota-resilient model chain; explicit vocabulary lists remain deterministic/local and require no model call.
 
 ### Acceptance criteria
 - A pasted paragraph produces a manageable candidate list rather than every token.
 - A pasted vocabulary list imports efficiently without requiring prose extraction.
 - Existing senses are reused/linked when appropriate; same-spelling different-sense candidates are not blindly merged.
 - User corrections in staging are preserved in the final created records.
+- Rate limits/transient model failures can fall through to another compatible model without exposing the API key to the mobile client.
 
 ---
 
@@ -50,37 +52,42 @@ Goal: turn material the learner already consumes into curated, contextual vocabu
 **Dependencies:** T030
 
 ### Scope
-- Add PDF upload/selection and server-side text extraction.
-- Preserve page number and nearby sentence/paragraph provenance for proposed vocabulary.
+- Add PDF upload/selection and server-side analysis.
+- Upload directly from mobile to short-lived private object storage rather than loading/piping the entire PDF through the API route.
+- Preserve page number and nearby sentence/paragraph provenance for proposed vocabulary when confidently verifiable.
 - Handle text PDFs first; detect unsupported/scanned/encrypted cases explicitly rather than pretending extraction succeeded.
-- Chunk large documents safely and combine/dedupe candidate vocabulary across chunks.
-- Feed candidates through common ranking/staging rather than auto-adding them.
+- Bound document/file size and candidate count, consolidate repeated vocabulary, and feed results through common staging rather than auto-adding them.
+- Use Gemini URL Context through the multimodal fallback chain so PDF imports share the same server secret/provider strategy as the other MVP AI imports.
 
 ### Acceptance criteria
-- Supported PDFs produce candidates with correct page provenance on representative documents.
-- Large PDFs do not require loading the entire document into the mobile app memory.
-- Repeated vocabulary across pages is consolidated while retaining multiple useful source occurrences.
+- Supported PDFs produce candidates with page provenance on representative documents; uncertain page locations remain null rather than fabricated.
+- Large supported PDFs do not require loading the entire document into mobile JavaScript memory.
+- Repeated vocabulary is consolidated while retaining the best representative source occurrence for the MVP; the canonical SourceOccurrence model remains capable of multiple occurrences in a later enrichment pass.
 - Unsupported PDFs fail with actionable messaging and do not create partial junk records silently.
+
+**MVP scope decision:** retaining every useful duplicate occurrence across many pages is deferred. One representative occurrence per proposed candidate is sufficient for Gate E and avoids expanding the import-job contract before usage validates the need.
 
 ---
 
-## T033 — YouTube import with transcript extraction and timestamp provenance
+## T033 — YouTube import with timestamped spoken-context provenance
 
 **Priority:** P1  
 **Dependencies:** T030
 
 ### Scope
-- Accept a YouTube URL and resolve a supported transcript/caption source through a compliant server-side integration.
-- Preserve timestamped transcript context for vocabulary candidates.
-- Chunk long transcripts, dedupe repeated candidates, and retain the best/representative occurrences.
-- Handle videos with unavailable captions/transcripts or unsupported access cleanly.
-- Allow a source occurrence to deep-link back to the relevant video timestamp where platform behavior permits.
+- Accept common YouTube URL forms and canonicalize them to one video ID/source fingerprint.
+- Use a compliant server-side Gemini public-video understanding integration rather than client-side transcript scraping.
+- Preserve a timestamped spoken-context occurrence for vocabulary candidates when confidently available.
+- Bound and dedupe long-video candidate output, retaining the best/representative occurrence for each proposed sense.
+- Handle private, unavailable, unsupported, or provider-rejected videos cleanly.
+- Allow a source occurrence to deep-link back to the canonical video timestamp where platform behavior permits.
 
 ### Acceptance criteria
-- A supported video produces staged vocabulary tied to transcript context and timestamp.
-- Missing transcript/caption cases are explicit failures, not empty-success imports.
-- Re-running the same video import is idempotent at the source/job layer.
+- A supported public video produces staged vocabulary tied to spoken/video context and timestamp.
+- Unsupported/private/unavailable cases are explicit failures, not empty-success imports.
+- Re-running equivalent watch/short/live/share URLs for the same video is idempotent at the source/job layer.
 - The importer respects provider/API terms and does not depend on brittle client-side scraping.
+- A transient 429/5xx/network failure can fall through to another compatible Flash-Lite model.
 
 ---
 
@@ -161,6 +168,8 @@ Goal: turn material the learner already consumes into curated, contextual vocabu
 - Media storage has quotas/cleanup behavior and does not grow unbounded.
 - User-authored media/notes are never overwritten silently by generated content.
 
+**Deferred decision:** this is intentionally post-MVP. Pronunciation/audio and the adaptive enrichment rules already provide useful learning support; generated imagery adds storage/provider/UI complexity without being required to validate the daily study/import loop. Revisit after beta usage shows demand.
+
 ---
 
 ## T038 — Import failures, limits, cost controls, observability, and retry UX
@@ -170,7 +179,7 @@ Goal: turn material the learner already consumes into curated, contextual vocabu
 
 ### Scope
 - Define per-source size/duration limits and validation before expensive processing starts.
-- Track job duration/state, extraction counts, AI usage/cost-relevant metrics, failure categories, and retries without logging sensitive source contents by default.
+- Track job duration/state, extraction counts, AI usage/cost-relevant metrics, failure categories, model fallbacks, and retries without logging sensitive source contents by default.
 - Add cancellation and bounded retry behavior for expensive jobs.
 - Prevent accidental duplicate submissions and runaway batch processing.
 - Add user-facing messages for limit exceeded, unsupported source, provider unavailable, extraction failed, and AI enrichment failed/partial success.
@@ -178,5 +187,5 @@ Goal: turn material the learner already consumes into curated, contextual vocabu
 ### Acceptance criteria
 - Import jobs cannot retry indefinitely or generate uncontrolled duplicate AI work.
 - Product can distinguish extraction failure from enrichment failure and preserve useful partial work where safe.
-- Operational metrics make unexpectedly expensive/noisy import behavior discoverable.
+- Operational metrics make unexpectedly expensive/noisy import behavior and repeated model fallback discoverable.
 - User can recover from common failures without losing the original approved/staged work.
