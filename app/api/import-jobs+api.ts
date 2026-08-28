@@ -1,5 +1,6 @@
 import type { ImportJobSubmission, RemoteImportJobSnapshot } from '@/imports/contracts';
 import { extractPdfVocabulary } from '@/imports/pdf-server';
+import { isLearnerLevel } from '@/imports/ranking';
 import { extractTextImport } from '@/imports/text-server';
 import { normalizeYouTubeUrl } from '@/imports/youtube';
 import { extractYouTubeVocabulary } from '@/imports/youtube-server';
@@ -21,7 +22,8 @@ function isSubmission(value: unknown): value is ImportJobSubmission {
     && typeof row.localJobId === 'string'
     && typeof row.languagePairId === 'string'
     && typeof row.sourceType === 'string'
-    && typeof row.sourceFingerprint === 'string';
+    && typeof row.sourceFingerprint === 'string'
+    && isLearnerLevel(row.learnerLevel);
 }
 
 function textPayload(value: unknown): { text: string } | null {
@@ -61,6 +63,9 @@ function errorResponse(caught: unknown): Response {
   if (message === 'PDF_NO_CANDIDATES') {
     return Response.json({ message: 'No useful vocabulary candidates were found in this PDF.' }, { status: 422 });
   }
+  if (message === 'PDF_SIZE_LIMIT') {
+    return Response.json({ message: 'PDF imports are limited to 25 MB.' }, { status: 413 });
+  }
   if (message === 'SERVER_DATA_API_NOT_CONFIGURED' || message === 'SERVER_DATABASE_NOT_CONFIGURED'
     || message === 'AI_IMPORT_NOT_CONFIGURED' || message.includes('not configured')) {
     return Response.json({ message: 'The smart-import service is not configured yet.' }, { status: 503 });
@@ -91,7 +96,7 @@ async function processText(
     sourceType: 'TEXT',
     sourceFingerprint: body.sourceFingerprint,
     sourceLabel: body.sourceLabel,
-    sourcePayload: { charCount: payload.text.length, inputKind: 'PROSE' },
+    sourcePayload: { charCount: payload.text.length, inputKind: 'PROSE', learnerLevel: body.learnerLevel },
   });
   if (job.status === 'NEEDS_REVIEW' || job.status === 'COMPLETED') {
     const existing = await serverJobSnapshot(pair.ownerId, job.id);
@@ -103,6 +108,7 @@ async function processText(
       text: payload.text,
       targetLanguageCode: pair.targetLanguageCode,
       referenceLanguageCode: pair.referenceLanguageCode,
+      learnerLevel: body.learnerLevel,
     });
     await storeServerCandidates({
       ownerId: pair.ownerId,
@@ -112,6 +118,7 @@ async function processText(
         durationMs: Date.now() - startedAt,
         inputChars: payload.text.length,
         candidateCount: extraction.candidates.length,
+        learnerLevel: body.learnerLevel,
         provider: extraction.provider,
         model: extraction.model,
         fallbackCount: extraction.fallbackCount,
@@ -128,7 +135,7 @@ async function processText(
       id: job.id,
       code: 'TEXT_PROCESSING_FAILED',
       message: caught instanceof Error ? caught.message.slice(0, 300) : 'Text processing failed.',
-      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_ROUTER' },
+      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_ROUTER', learnerLevel: body.learnerLevel },
     });
     throw caught;
   }
@@ -151,7 +158,7 @@ async function processYouTube(
     sourceType: 'YOUTUBE',
     sourceFingerprint: source.fingerprint,
     sourceLabel: body.sourceLabel,
-    sourcePayload: { videoId: source.videoId, canonicalUrl: source.canonicalUrl },
+    sourcePayload: { videoId: source.videoId, canonicalUrl: source.canonicalUrl, learnerLevel: body.learnerLevel },
   });
   if (job.status === 'NEEDS_REVIEW' || job.status === 'COMPLETED') {
     const existing = await serverJobSnapshot(pair.ownerId, job.id);
@@ -164,6 +171,7 @@ async function processYouTube(
       url: source.canonicalUrl,
       targetLanguageCode: pair.targetLanguageCode,
       referenceLanguageCode: pair.referenceLanguageCode,
+      learnerLevel: body.learnerLevel,
     });
     await storeServerCandidates({
       ownerId: pair.ownerId,
@@ -172,6 +180,7 @@ async function processYouTube(
       metrics: {
         durationMs: Date.now() - startedAt,
         candidateCount: extraction.candidates.length,
+        learnerLevel: body.learnerLevel,
         provider: 'GEMINI_YOUTUBE_ROUTER',
         model: extraction.model,
         fallbackCount: extraction.fallbackCount,
@@ -188,7 +197,7 @@ async function processYouTube(
       id: job.id,
       code: 'YOUTUBE_PROCESSING_FAILED',
       message: caught instanceof Error ? caught.message.slice(0, 300) : 'YouTube processing failed.',
-      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_YOUTUBE_ROUTER' },
+      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_YOUTUBE_ROUTER', learnerLevel: body.learnerLevel },
     });
     throw caught;
   }
@@ -218,7 +227,7 @@ async function processPdf(
     sourceType: 'PDF',
     sourceFingerprint: body.sourceFingerprint,
     sourceLabel: body.sourceLabel,
-    sourcePayload: { fileName: payload.fileName, contentType: payload.contentType, size: payload.size },
+    sourcePayload: { fileName: payload.fileName, contentType: payload.contentType, size: payload.size, learnerLevel: body.learnerLevel },
     artifactKey: payload.objectKey,
   });
   await setServerJobArtifact({ ownerId: pair.ownerId, id: job.id, artifactKey: payload.objectKey, expiresAt });
@@ -231,13 +240,14 @@ async function processPdf(
     ownerId: pair.ownerId,
     id: job.id,
     providerKind: 'GEMINI_PDF_URL_CONTEXT',
-    metrics: { inputBytes: payload.size },
+    metrics: { inputBytes: payload.size, learnerLevel: body.learnerLevel },
   });
   try {
     const extraction = await extractPdfVocabulary({
       objectKey: payload.objectKey,
       targetLanguageCode: pair.targetLanguageCode,
       referenceLanguageCode: pair.referenceLanguageCode,
+      learnerLevel: body.learnerLevel,
     });
     await storeServerCandidates({
       ownerId: pair.ownerId,
@@ -248,6 +258,7 @@ async function processPdf(
         inputBytes: payload.size,
         candidateCount: extraction.candidates.length,
         pageCount: extraction.pageCount,
+        learnerLevel: body.learnerLevel,
         provider: 'GEMINI_PDF_URL_CONTEXT',
         model: extraction.model,
         fallbackCount: extraction.fallbackCount,
@@ -265,7 +276,7 @@ async function processPdf(
       id: job.id,
       code,
       message: caught instanceof Error ? caught.message.slice(0, 300) : 'PDF processing failed.',
-      metrics: { durationMs: Date.now() - startedAt, inputBytes: payload.size, provider: 'GEMINI_PDF_URL_CONTEXT' },
+      metrics: { durationMs: Date.now() - startedAt, inputBytes: payload.size, provider: 'GEMINI_PDF_URL_CONTEXT', learnerLevel: body.learnerLevel },
     });
     throw caught;
   }
