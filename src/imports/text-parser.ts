@@ -1,4 +1,5 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { isLearnerLevel, type LearnerLevel } from './ranking';
 
 export const MAX_PASTED_TEXT_CHARS = 12_000;
 export const MAX_TEXT_CANDIDATES = 24;
@@ -71,6 +72,7 @@ export function parseExplicitVocabularyList(text: string): NormalizedImportCandi
       },
       confidence: 0.99,
       usefulness: 0.75,
+      cefrLevel: null,
       duplicateHint: null,
       isVisuallyConcrete: null,
     });
@@ -101,6 +103,7 @@ export function normalizeAiTextCandidates(
     context: string | null;
     confidence: number;
     usefulness: number;
+    cefrLevel: LearnerLevel | null;
     isVisuallyConcrete: boolean | null;
   }>,
 ): NormalizedImportCandidate[] {
@@ -130,6 +133,7 @@ export function normalizeAiTextCandidates(
       },
       confidence: Math.max(0, Math.min(1, row.confidence)),
       usefulness: Math.max(0, Math.min(1, row.usefulness)),
+      cefrLevel: isLearnerLevel(row.cefrLevel) ? row.cefrLevel : null,
       duplicateHint: null,
       isVisuallyConcrete: row.isVisuallyConcrete,
     });
