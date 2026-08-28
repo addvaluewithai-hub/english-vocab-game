@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS terms (
 CREATE INDEX IF NOT EXISTS idx_terms_language_pair ON terms(language_pair_id, normalized_text);
 
 CREATE TABLE IF NOT EXISTS senses (
-  id TEXT PRIMARY KEY NOT NULL REFERENCES terms(id),
+  id TEXT PRIMARY KEY NOT NULL,
+  term_id TEXT NOT NULL REFERENCES terms(id),
   translation TEXT NOT NULL,
   definition TEXT,
   part_of_speech TEXT,
