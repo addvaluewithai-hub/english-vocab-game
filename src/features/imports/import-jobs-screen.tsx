@@ -45,7 +45,7 @@ export function ImportJobsScreen() {
         try {
           await service.refresh(job.id);
         } catch {
-          // Keep the durable local state; a later explicit refresh can retry the network request.
+          // Keep durable local state; a later explicit refresh can retry the network request.
         }
       }
       await reload(languagePairId);
@@ -88,8 +88,9 @@ export function ImportJobsScreen() {
 
       <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
         <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Start an import</Text>
-        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>Paste text locally or send larger sources through durable background jobs.</Text>
+        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>Paste text locally, analyze a public YouTube video, or send a PDF through the durable import pipeline.</Text>
         <Link href="/imports/text" asChild><ActionButton label="Paste text or vocabulary list" /></Link>
+        <Link href="/imports/youtube" asChild><ActionButton label="Import YouTube video" /></Link>
         <Link href="/imports/pdf" asChild><ActionButton label="Import PDF" /></Link>
       </Surface>
 
@@ -98,7 +99,7 @@ export function ImportJobsScreen() {
       ) : null}
 
       {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted }}>{message}</Text></Surface> : null}
-      {jobs.length === 0 ? <EmptyState title="No import history yet" body="Text and PDF imports will appear here. YouTube, URL, and photo adapters use the same durable job pipeline." /> : jobs.map((job) => (
+      {jobs.length === 0 ? <EmptyState title="No import history yet" body="Text, YouTube, and PDF imports will appear here. Optional URL and photo sources can be added later without changing the review pipeline." /> : jobs.map((job) => (
         <Surface key={job.id} style={{ padding: spacing.md, gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ flex: 1, gap: spacing.xs }}>
