@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { MIGRATION_003 } from './migration-v3';
 
-export const LATEST_DATABASE_VERSION = 2;
+export const LATEST_DATABASE_VERSION = 3;
 
 const MIGRATION_001 = `
 CREATE TABLE IF NOT EXISTS language_pairs (
@@ -194,6 +195,7 @@ CREATE TABLE IF NOT EXISTS sync_meta (
 export const DATABASE_MIGRATIONS: readonly { version: number; sql: string }[] = [
   { version: 1, sql: MIGRATION_001 },
   { version: 2, sql: MIGRATION_002 },
+  { version: 3, sql: MIGRATION_003 },
 ];
 
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
