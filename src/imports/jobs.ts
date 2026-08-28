@@ -1,6 +1,9 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { ImportStagingService, type ProposedVocabulary } from './staging';
+import { asSqlDatabase } from '@/data/database';
+import { PreferencesRepository } from '@/data/preferences';
 import { createId } from '@/utils/id';
+import { ImportStagingService, type ProposedVocabulary } from './staging';
+import { DEFAULT_LEARNER_LEVEL, isLearnerLevel } from './ranking';
 import type {
   ImportJob,
   ImportJobStatus,
@@ -86,6 +89,7 @@ function toStagingCandidate(candidate: NormalizedImportCandidate): ProposedVocab
     ...(candidate.partOfSpeech ? { partOfSpeech: candidate.partOfSpeech } : {}),
     ...(candidate.usefulness === null ? {} : { usefulnessScore: candidate.usefulness }),
     ...(candidate.confidence === null ? {} : { confidenceScore: candidate.confidence }),
+    ...(candidate.cefrLevel === null ? {} : { cefrLevel: candidate.cefrLevel }),
     ...(candidate.occurrence.sourceUri ? { sourceUri: candidate.occurrence.sourceUri } : {}),
     ...(candidate.occurrence.locator ? { sourceLocator: candidate.occurrence.locator } : {}),
     ...(candidate.occurrence.pageNumber === null ? {} : { sourcePageNumber: candidate.occurrence.pageNumber }),
@@ -236,12 +240,19 @@ export class ImportJobRepository {
 
 export class ImportJobService {
   private readonly repository: ImportJobRepository;
+  private readonly sqlite: SQLiteDatabase;
 
   constructor(
     sqlite: SQLiteDatabase,
     private readonly transport: ImportJobTransport,
   ) {
+    this.sqlite = sqlite;
     this.repository = new ImportJobRepository(sqlite);
+  }
+
+  private async learnerLevel() {
+    const value = await new PreferencesRepository(asSqlDatabase(this.sqlite)).get('learner_level');
+    return isLearnerLevel(value) ? value : DEFAULT_LEARNER_LEVEL;
   }
 
   async submit(jobId: string, sourcePayload: unknown): Promise<ImportJob> {
@@ -257,6 +268,7 @@ export class ImportJobService {
         sourceType: job.sourceType,
         sourceFingerprint: job.sourceFingerprint,
         sourceLabel: job.sourceLabel,
+        learnerLevel: await this.learnerLevel(),
         sourcePayload,
       });
       const updated = await this.repository.applyRemoteSnapshot(job.id, snapshot);
