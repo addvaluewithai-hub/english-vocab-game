@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { getNeonJwtToken } from '@/auth/neon-auth';
 import { ActionButton, Chip, EmptyState, Surface } from '@/components/primitives';
 import { useActiveLanguagePair } from '@/data/use-active-language-pair';
-import { ImportJobRepository, type ImportJob } from '@/imports/jobs';
+import { HttpImportJobTransport } from '@/imports/http-transport';
+import { ImportJobRepository, ImportJobService, type ImportJob } from '@/imports/jobs';
 import { colors, spacing, typography } from '@/theme/tokens';
 
 function statusCopy(job: ImportJob): string {
   if (job.status === 'QUEUED') return 'Waiting for the server-side importer.';
-  if (job.status === 'PROCESSING') return 'Extraction and enrichment are running server-side. You can leave this screen.';
+  if (job.status === 'PROCESSING') return 'Extraction and enrichment are running server-side. You can leave this screen and refresh later.';
   if (job.status === 'NEEDS_REVIEW') return `${job.candidates?.length ?? 0} candidates are ready for your approval.`;
   if (job.status === 'COMPLETED') return 'Reviewed candidates were handled through staging.';
   if (job.status === 'CANCELLED') return 'Cancelled safely. The source fingerprint is retained for deliberate retry.';
@@ -18,12 +20,38 @@ function statusCopy(job: ImportJob): string {
 
 export function ImportJobsScreen() {
   const sqlite = useSQLiteContext();
-  const { loading: pairLoading, pair } = useActiveLanguagePair();
+  const { loading: pairLoading, pair, ownerKey } = useActiveLanguagePair();
   const [jobs, setJobs] = useState<ImportJob[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  async function reload(languagePairId: string): Promise<void> {
-    setJobs(await new ImportJobRepository(sqlite).list(languagePairId));
+  async function reload(languagePairId: string): Promise<ImportJob[]> {
+    const rows = await new ImportJobRepository(sqlite).list(languagePairId);
+    setJobs(rows);
+    return rows;
+  }
+
+  async function refreshProcessing(languagePairId: string): Promise<void> {
+    if (ownerKey === 'guest') {
+      await reload(languagePairId);
+      return;
+    }
+    setRefreshing(true);
+    try {
+      const rows = await new ImportJobRepository(sqlite).list(languagePairId);
+      const service = new ImportJobService(sqlite, new HttpImportJobTransport(getNeonJwtToken));
+      for (const job of rows) {
+        if (job.status !== 'PROCESSING' || !job.serverJobId) continue;
+        try {
+          await service.refresh(job.id);
+        } catch {
+          // Keep the durable local state; a later explicit refresh can retry the network request.
+        }
+      }
+      await reload(languagePairId);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   useEffect(() => {
@@ -37,7 +65,7 @@ export function ImportJobsScreen() {
 
   async function retry(job: ImportJob): Promise<void> {
     const updated = await new ImportJobRepository(sqlite).prepareRetry(job.id);
-    setMessage(updated.status === 'QUEUED' ? 'Retry queued. The source-specific importer can safely resubmit it with the same idempotency key.' : 'This job does not need a retry.');
+    setMessage(updated.status === 'QUEUED' ? 'Retry queued. The same logical source will be reused instead of creating duplicate work.' : 'This job does not need a retry.');
     if (pair) await reload(pair.id);
   }
 
@@ -60,12 +88,17 @@ export function ImportJobsScreen() {
 
       <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
         <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Start an import</Text>
-        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>Paste prose for a curated extraction, or paste a word/phrase list with explicit meanings for a fully local import.</Text>
+        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>Paste text locally or send larger sources through durable background jobs.</Text>
         <Link href="/imports/text" asChild><ActionButton label="Paste text or vocabulary list" /></Link>
+        <Link href="/imports/pdf" asChild><ActionButton label="Import PDF" /></Link>
       </Surface>
 
+      {jobs.some((job) => job.status === 'PROCESSING') ? (
+        <ActionButton label={refreshing ? 'Refreshing…' : 'Refresh processing imports'} disabled={refreshing} onPress={() => void refreshProcessing(pair.id)} />
+      ) : null}
+
       {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted }}>{message}</Text></Surface> : null}
-      {jobs.length === 0 ? <EmptyState title="No import history yet" body="Your text imports will appear here. PDF, YouTube, URL, and photo adapters use the same job pipeline as they are enabled." /> : jobs.map((job) => (
+      {jobs.length === 0 ? <EmptyState title="No import history yet" body="Text and PDF imports will appear here. YouTube, URL, and photo adapters use the same durable job pipeline." /> : jobs.map((job) => (
         <Surface key={job.id} style={{ padding: spacing.md, gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ flex: 1, gap: spacing.xs }}>
