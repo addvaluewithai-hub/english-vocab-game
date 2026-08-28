@@ -1,4 +1,5 @@
 import type { SourceType } from '@/domain/types';
+import type { LearnerLevel } from './ranking';
 
 export type ImportSourceType = Exclude<SourceType, 'MANUAL' | 'GENERATED'>;
 export type ImportJobStatus = 'QUEUED' | 'PROCESSING' | 'NEEDS_REVIEW' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
@@ -21,6 +22,7 @@ export interface NormalizedImportCandidate {
   occurrence: NormalizedSourceOccurrence;
   confidence: number | null;
   usefulness: number | null;
+  cefrLevel: LearnerLevel | null;
   duplicateHint: 'NONE' | 'EXACT' | 'LIKELY' | null;
   isVisuallyConcrete: boolean | null;
 }
@@ -58,6 +60,7 @@ export interface ImportJobSubmission {
   sourceType: ImportSourceType;
   sourceFingerprint: string;
   sourceLabel: string | null;
+  learnerLevel: LearnerLevel;
   sourcePayload: unknown;
 }
 
