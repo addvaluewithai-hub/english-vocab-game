@@ -2,6 +2,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { SourceType } from '@/domain/types';
 import { ManualVocabularyService } from '@/data/catalog';
 import { asSqlDatabase } from '@/data/database';
+import { PreferencesRepository } from '@/data/preferences';
+import {
+  DEFAULT_LEARNER_LEVEL,
+  isLearnerLevel,
+  rankImportCandidate,
+  type KnownLifecycle,
+  type LearnerLevel,
+} from './ranking';
 import { createId } from '@/utils/id';
 
 export type DuplicateKind = 'NONE' | 'EXACT' | 'TERM_ONLY';
@@ -14,6 +22,7 @@ export interface ProposedVocabulary {
   partOfSpeech?: string;
   usefulnessScore?: number;
   confidenceScore?: number;
+  cefrLevel?: LearnerLevel;
   sourceUri?: string;
   sourceLocator?: string;
   sourcePageNumber?: number;
@@ -27,6 +36,10 @@ export interface StagedCandidate extends ProposedVocabulary {
   duplicateKind: DuplicateKind;
   selected: boolean;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rankingScore: number;
+  rankingReason: string;
+  recommended: boolean;
+  knownLifecycle: KnownLifecycle;
 }
 
 export interface ImportBatch {
@@ -52,6 +65,34 @@ function normalizedTerm(value: string): string {
 export class ImportStagingService {
   constructor(private readonly db: SQLiteDatabase) {}
 
+  private async learnerLevel(): Promise<LearnerLevel> {
+    const value = await new PreferencesRepository(asSqlDatabase(this.db)).get('learner_level');
+    return isLearnerLevel(value) ? value : DEFAULT_LEARNER_LEVEL;
+  }
+
+  private async knownLifecycle(
+    languagePairId: string,
+    term: string,
+    translation: string,
+    database: Pick<SQLiteDatabase, 'getFirstAsync'> = this.db,
+  ): Promise<KnownLifecycle> {
+    const row = await database.getFirstAsync<{ lifecycle: KnownLifecycle }>(
+      `SELECT u.lifecycle
+       FROM terms t
+       JOIN senses s ON s.term_id=t.id
+       JOIN cards c ON c.sense_id=s.id AND c.deleted_at IS NULL
+       LEFT JOIN user_card_states u ON u.card_id=c.id
+       WHERE t.language_pair_id=? AND t.normalized_text=? AND LOWER(TRIM(s.translation))=?
+         AND t.deleted_at IS NULL AND s.deleted_at IS NULL
+       ORDER BY CASE u.lifecycle WHEN 'MASTERED' THEN 4 WHEN 'REVIEW' THEN 3 WHEN 'LEARNING' THEN 2 WHEN 'NEW' THEN 1 ELSE 0 END DESC
+       LIMIT 1`,
+      languagePairId,
+      normalizedTerm(term),
+      translation.trim().toLocaleLowerCase(),
+    );
+    return row?.lifecycle ?? null;
+  }
+
   async createBatch(
     languagePairId: string,
     sourceType: SourceType,
@@ -61,6 +102,7 @@ export class ImportStagingService {
   ): Promise<string> {
     const batchId = createId('import');
     const createdAt = now.toISOString();
+    const learnerLevel = await this.learnerLevel();
 
     await this.db.withExclusiveTransactionAsync(async (txn) => {
       await txn.runAsync(
@@ -98,13 +140,22 @@ export class ImportStagingService {
           : sameTerm
             ? 'TERM_ONLY'
             : 'NONE';
+        const knownLifecycle = await this.knownLifecycle(languagePairId, term, translation, txn);
+        const rank = rankImportCandidate({
+          usefulness: candidate.usefulnessScore ?? null,
+          confidence: candidate.confidenceScore ?? null,
+          cefrLevel: candidate.cefrLevel ?? null,
+          duplicateKind,
+          knownLifecycle,
+        }, learnerLevel);
+        const selected = duplicateKind === 'EXACT' || rank.recommended;
 
         await txn.runAsync(
           `INSERT INTO import_candidates(
              id, batch_id, term, translation, definition, context_sentence, part_of_speech,
              usefulness_score, confidence_score, duplicate_kind, selected, status, created_at,
-             source_uri, source_locator, source_page_number, source_timestamp_seconds, is_visually_concrete
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?)`,
+             source_uri, source_locator, source_page_number, source_timestamp_seconds, is_visually_concrete, cefr_level
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?)`,
           createId('candidate'),
           batchId,
           term,
@@ -115,13 +166,14 @@ export class ImportStagingService {
           candidate.usefulnessScore ?? null,
           candidate.confidenceScore ?? null,
           duplicateKind,
-          duplicateKind === 'EXACT' ? 0 : 1,
+          selected ? 1 : 0,
           createdAt,
           candidate.sourceUri?.trim() || null,
           candidate.sourceLocator?.trim() || null,
           candidate.sourcePageNumber ?? null,
           candidate.sourceTimestampSeconds ?? null,
           candidate.isVisuallyConcrete === undefined ? null : candidate.isVisuallyConcrete ? 1 : 0,
+          candidate.cefrLevel ?? null,
         );
       }
     });
@@ -155,6 +207,12 @@ export class ImportStagingService {
   }
 
   async listCandidates(batchId: string): Promise<StagedCandidate[]> {
+    const batch = await asSqlDatabase(this.db).getFirstAsync<{ language_pair_id: string }>(
+      'SELECT language_pair_id FROM import_batches WHERE id=?',
+      batchId,
+    );
+    if (!batch) return [];
+    const learnerLevel = await this.learnerLevel();
     const rows = await asSqlDatabase(this.db).getAllAsync<{
       id: string;
       batch_id: string;
@@ -165,6 +223,7 @@ export class ImportStagingService {
       part_of_speech: string | null;
       usefulness_score: number | null;
       confidence_score: number | null;
+      cefr_level: LearnerLevel | null;
       duplicate_kind: DuplicateKind;
       selected: number;
       status: StagedCandidate['status'];
@@ -178,25 +237,42 @@ export class ImportStagingService {
       batchId,
     );
 
-    return rows.map((row) => ({
-      id: row.id,
-      batchId: row.batch_id,
-      term: row.term,
-      translation: row.translation,
-      ...optionalString('definition', row.definition),
-      ...optionalString('contextSentence', row.context_sentence),
-      ...optionalString('partOfSpeech', row.part_of_speech),
-      ...optionalNumber('usefulnessScore', row.usefulness_score),
-      ...optionalNumber('confidenceScore', row.confidence_score),
-      ...optionalString('sourceUri', row.source_uri),
-      ...optionalString('sourceLocator', row.source_locator),
-      ...optionalNumber('sourcePageNumber', row.source_page_number),
-      ...optionalNumber('sourceTimestampSeconds', row.source_timestamp_seconds),
-      ...(row.is_visually_concrete === null ? {} : { isVisuallyConcrete: row.is_visually_concrete === 1 }),
-      duplicateKind: row.duplicate_kind,
-      selected: row.selected === 1,
-      status: row.status,
+    const ranked = await Promise.all(rows.map(async (row) => {
+      const knownLifecycle = await this.knownLifecycle(batch.language_pair_id, row.term, row.translation);
+      const rank = rankImportCandidate({
+        usefulness: row.usefulness_score,
+        confidence: row.confidence_score,
+        cefrLevel: row.cefr_level,
+        duplicateKind: row.duplicate_kind,
+        knownLifecycle,
+      }, learnerLevel);
+      return {
+        id: row.id,
+        batchId: row.batch_id,
+        term: row.term,
+        translation: row.translation,
+        ...optionalString('definition', row.definition),
+        ...optionalString('contextSentence', row.context_sentence),
+        ...optionalString('partOfSpeech', row.part_of_speech),
+        ...optionalNumber('usefulnessScore', row.usefulness_score),
+        ...optionalNumber('confidenceScore', row.confidence_score),
+        ...(row.cefr_level ? { cefrLevel: row.cefr_level } : {}),
+        ...optionalString('sourceUri', row.source_uri),
+        ...optionalString('sourceLocator', row.source_locator),
+        ...optionalNumber('sourcePageNumber', row.source_page_number),
+        ...optionalNumber('sourceTimestampSeconds', row.source_timestamp_seconds),
+        ...(row.is_visually_concrete === null ? {} : { isVisuallyConcrete: row.is_visually_concrete === 1 }),
+        duplicateKind: row.duplicate_kind,
+        selected: row.selected === 1,
+        status: row.status,
+        rankingScore: rank.score,
+        rankingReason: rank.reason,
+        recommended: rank.recommended,
+        knownLifecycle,
+      } satisfies StagedCandidate;
     }));
+
+    return ranked.sort((left, right) => right.rankingScore - left.rankingScore || left.term.localeCompare(right.term));
   }
 
   async setSelected(candidateId: string, selected: boolean): Promise<void> {
@@ -285,12 +361,24 @@ export class ImportStagingService {
 
   async approveSelected(batch: ImportBatch): Promise<number> {
     const candidates = (await this.listCandidates(batch.id)).filter(
-      (item) => item.selected && item.status === 'PENDING' && item.duplicateKind !== 'EXACT',
+      (item) => item.selected && item.status === 'PENDING',
     );
     const creator = new ManualVocabularyService(this.db);
     let approved = 0;
 
     for (const item of candidates) {
+      if (item.duplicateKind === 'EXACT') {
+        const existingSenseId = await this.findCanonicalSense(batch, item);
+        if (!existingSenseId) throw new Error('The matching vocabulary changed before this import was approved.');
+        await this.attachImportProvenance(batch, item, existingSenseId);
+        await this.db.runAsync(
+          `UPDATE import_candidates SET status = 'APPROVED' WHERE id = ?`,
+          item.id,
+        );
+        approved += 1;
+        continue;
+      }
+
       try {
         const created = await creator.create({
           languagePairId: batch.languagePairId,
