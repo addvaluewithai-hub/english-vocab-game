@@ -39,7 +39,7 @@ This folder is the **source of truth for product development**. Every implementa
 - Authenticated server/Data API boundary between the mobile client and cloud data; privileged Postgres credentials never ship in the app
 - Object storage selected alongside Neon for imported files/media (prefer Neon Object Storage when it fits the implementation requirements)
 - EAS development builds, beta distribution, and production builds
-- Scheduler abstraction: simple scheduler first, FSRS-compatible later
+- Scheduler abstraction with FSRS-grade scheduling behind a replaceable interface
 
 ## Release gates
 
@@ -74,25 +74,25 @@ This folder is the **source of truth for product development**. Every implementa
 | T018 | Neon cloud schema, migrations, access control, and storage strategy | P0 | T004 | C | DONE |
 | T019 | Neon Auth and guest-to-account migration | P1 | T017, T018 | C | DONE |
 | T020 | Offline sync protocol: outbox, versions, tombstones, and sync contract | P0 | T004, T018 | C | DONE |
-| T021 | Offline-first sync engine implementation | P0 | T020 | C | IN_PROGRESS |
-| T022 | Conflict handling, retry/recovery, and sync-status UX | P0 | T021 | C | BACKLOG |
-| T023 | Backup/restore and multi-device verification | P1 | T019, T022 | C | BACKLOG |
-| T024 | Scheduler interface and FSRS-grade scheduling integration | P1 | T009 | D | READY |
-| T025 | Pronunciation, audio playback, caching, and replay controls | P1 | T013 | D | READY |
-| T026 | Recall-mode framework: reverse, cloze/context, listening, and typing | P1 | T009, T024, T025 | D | BACKLOG |
-| T027 | Learning stats, retention insights, streaks, and progress summaries | P1 | T009, T024 | D | BACKLOG |
-| T028 | Daily due reminders and notification preferences | P1 | T017, T024 | D | BACKLOG |
-| T029 | Adaptive card enrichment rules by vocabulary/sense type | P2 | T025, T026 | D/E | BACKLOG |
-| T030 | Import job architecture and ingestion pipeline framework | P1 | T016, T018, T021 | E | BACKLOG |
-| T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | BACKLOG |
-| T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | BACKLOG |
-| T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | BACKLOG |
-| T034 | Web article/URL import with clean-text extraction and provenance | P2 | T030 | E | BACKLOG |
-| T035 | Photo/image vocabulary import with OCR workflow and review staging | P2 | T030 | E | BACKLOG |
+| T021 | Offline-first sync engine implementation | P0 | T020 | C | DONE |
+| T022 | Conflict handling, retry/recovery, and sync-status UX | P0 | T021 | C | DONE |
+| T023 | Backup/restore and multi-device verification | P1 | T019, T022 | C | DONE |
+| T024 | Scheduler interface and FSRS-grade scheduling integration | P1 | T009 | D | DONE |
+| T025 | Pronunciation, audio playback, caching, and replay controls | P1 | T013 | D | DONE |
+| T026 | Recall-mode framework: reverse, cloze/context, listening, and typing | P1 | T009, T024, T025 | D | DONE |
+| T027 | Learning stats, retention insights, streaks, and progress summaries | P1 | T009, T024 | D | DONE |
+| T028 | Daily due reminders and notification preferences | P1 | T017, T024 | D | BLOCKED |
+| T029 | Adaptive card enrichment rules by vocabulary/sense type | P2 | T025, T026 | D/E | DONE |
+| T030 | Import job architecture and ingestion pipeline framework | P1 | T016, T018, T021 | E | DONE |
+| T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | READY |
+| T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | READY |
+| T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | READY |
+| T034 | Web article/URL import with clean-text extraction and provenance | P2 | T030 | E | READY |
+| T035 | Photo/image vocabulary import with OCR workflow and review staging | P2 | T030 | E | READY |
 | T036 | AI usefulness/level filtering, sense selection, and import approval ranking | P1 | T031, T032, T033 | E | BACKLOG |
-| T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | BACKLOG |
+| T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | READY |
 | T038 | Import failures, limits, cost controls, observability, and retry UX | P1 | T030, T031, T032, T033 | E | BACKLOG |
-| T039 | Privacy-safe analytics and production error reporting | P1 | T010, T021 | F | BACKLOG |
+| T039 | Privacy-safe analytics and production error reporting | P1 | T010, T021 | F | READY |
 | T040 | Security/privacy controls, data export, account deletion, and retention policy | P0 | T018, T019 | F | READY |
 | T041 | Performance, offline, storage, memory, and battery hardening | P0 | T022, T036 | F | BACKLOG |
 | T042 | End-to-end test suite and CI quality gates | P0 | T023, T036 | F | BACKLOG |
