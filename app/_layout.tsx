@@ -10,10 +10,20 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SQLiteProvider databaseName="vocab-flow.db" onInit={initializeDatabase}>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerStyle: { backgroundColor: colors.canvas }, headerShadowVisible: false, contentStyle: { backgroundColor: colors.canvas } }}>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.canvas },
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.canvas },
+          }}
+        >
           <Stack.Screen name="index" options={{ title: 'Study' }} />
           <Stack.Screen name="bank" options={{ title: 'Vocabulary Bank' }} />
-          <Stack.Screen name="add" options={{ title: 'Add Vocabulary', presentation: 'modal' }} />
+          <Stack.Screen name="add" options={{ title: 'Vocabulary', presentation: 'modal' }} />
+          <Stack.Screen name="vocabulary/[cardId]" options={{ title: 'Vocabulary' }} />
+          <Stack.Screen name="collections" options={{ title: 'Collections' }} />
+          <Stack.Screen name="import-staging" options={{ title: 'Review Import' }} />
+          <Stack.Screen name="auth" options={{ title: 'Account', presentation: 'modal' }} />
           <Stack.Screen name="stats" options={{ title: 'Stats' }} />
           <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         </Stack>
