@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Linking, ScrollView, Text, View } from 'react-native';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { ActionButton, Chip, EmptyState, Surface } from '@/components/primitives';
@@ -17,22 +18,41 @@ function sourceLocator(context: VocabularyDetail['contexts'][number]): string | 
   return null;
 }
 
+async function readVocabularyDetail(sqlite: SQLiteDatabase, cardId: string): Promise<VocabularyDetail | null> {
+  return new CatalogRepository(asSqlDatabase(sqlite)).getDetail(cardId);
+}
+
 export function VocabularyDetailScreen() {
   const { cardId } = useLocalSearchParams<{ cardId: string }>();
   const sqlite = useSQLiteContext();
   const [detail, setDetail] = useState<VocabularyDetail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  async function reload(): Promise<void> {
     if (!cardId) return;
-    try {
-      setDetail(await new CatalogRepository(asSqlDatabase(sqlite)).getDetail(cardId));
-      setError(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not load vocabulary.');
-    }
+    setDetail(await readVocabularyDetail(sqlite, cardId));
+    setError(null);
   }
-  useEffect(() => { void load(); }, [cardId, sqlite]);
+
+  useEffect(() => {
+    if (!cardId) return;
+    let cancelled = false;
+
+    void readVocabularyDetail(sqlite, cardId)
+      .then((next) => {
+        if (!cancelled) {
+          setDetail(next);
+          setError(null);
+        }
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not load vocabulary.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cardId, sqlite]);
 
   if (error) return <EmptyState title="Could not open vocabulary" body={error} />;
   if (detail === undefined) return <EmptyState title="Loading…" body="Opening vocabulary details." />;
@@ -75,7 +95,7 @@ export function VocabularyDetailScreen() {
         {detail.collections.length ? detail.collections.map((collection) => (
           <Surface key={collection.id} style={{ padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <Text selectable style={{ flex: 1, color: colors.ink, fontWeight: '700' }}>{collection.name}</Text>
-            <ActionButton label="Remove" tone="danger" onPress={() => void new CatalogRepository(asSqlDatabase(sqlite)).removeFromCollection(detail.cardId, collection.id).then(load)} />
+            <ActionButton label="Remove" tone="danger" onPress={() => void new CatalogRepository(asSqlDatabase(sqlite)).removeFromCollection(detail.cardId, collection.id).then(reload)} />
           </Surface>
         )) : <Text selectable style={{ color: colors.inkMuted }}>Not in a collection.</Text>}
       </View>
