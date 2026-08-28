@@ -38,7 +38,8 @@ export interface RemoteSyncEntity {
 }
 
 export type PushMutationResult =
-  | { status: 'APPLIED' | 'DUPLICATE'; serverVersion: number }
+  | { status: 'APPLIED'; serverVersion: number }
+  | { status: 'DUPLICATE'; serverVersion: number }
   | { status: 'CONFLICT'; remote: RemoteSyncEntity }
   | { status: 'REJECTED'; code: string; message: string };
 
