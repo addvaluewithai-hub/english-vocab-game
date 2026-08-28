@@ -1,14 +1,28 @@
-import type { ISODateString, ReviewGrade, StudyLifecycle, UserCardState } from '@/domain/types';
+import { createEmptyCard, fsrs, State } from 'ts-fsrs';
+import type { Grade } from 'ts-fsrs';
+import type { ISODateString, ReviewEvent, ReviewGrade, StudyLifecycle, UserCardState } from '@/domain/types';
 
 export interface ScheduleDecision {
   lifecycle: StudyLifecycle;
   repetitions: number;
   lapses: number;
   nextDueAt: ISODateString;
+  stability?: number;
+  difficulty?: number;
+  elapsedDays?: number;
+  scheduledDays?: number;
+  learningSteps?: number;
+  fsrsState?: number;
+  schedulerVersion?: string;
 }
 
 export interface ReviewScheduler {
-  schedule(previous: UserCardState | null, grade: ReviewGrade, reviewedAt: Date): ScheduleDecision;
+  schedule(
+    previous: UserCardState | null,
+    grade: ReviewGrade,
+    reviewedAt: Date,
+    history?: readonly ReviewEvent[],
+  ): ScheduleDecision;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,6 +48,59 @@ export class SimpleReviewScheduler implements ReviewScheduler {
       repetitions,
       lapses: previous?.lapses ?? 0,
       nextDueAt: new Date(reviewedAt.getTime() + intervalDays * DAY_MS).toISOString(),
+    };
+  }
+}
+
+const FSRS_VERSION = 'fsrs-5.4.1';
+const fsrsScheduler = fsrs({
+  request_retention: 0.9,
+  maximum_interval: 36500,
+  enable_fuzz: false,
+  enable_short_term: true,
+  learning_steps: ['1m', '10m'],
+  relearning_steps: ['10m'],
+});
+
+function lifecycleFor(state: State): StudyLifecycle {
+  if (state === State.New) return 'NEW';
+  if (state === State.Review) return 'REVIEW';
+  return 'LEARNING';
+}
+
+function gradeFor(grade: ReviewGrade): Grade {
+  return grade === 'KNEW' ? 3 : 1;
+}
+
+export class FsrsReviewScheduler implements ReviewScheduler {
+  schedule(
+    previous: UserCardState | null,
+    grade: ReviewGrade,
+    reviewedAt: Date,
+    history: readonly ReviewEvent[] = [],
+  ): ScheduleDecision {
+    const ordered = [...history].sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt) || a.id.localeCompare(b.id));
+    const replay = ordered.length > 0
+      ? ordered
+      : [{ id: 'current', cardId: previous?.cardId ?? '', sessionId: '', grade, reviewedAt: reviewedAt.toISOString(), responseMs: null } satisfies ReviewEvent];
+    let card = createEmptyCard(new Date(replay[0]?.reviewedAt ?? reviewedAt));
+
+    for (const event of replay) {
+      card = fsrsScheduler.next(card, new Date(event.reviewedAt), gradeFor(event.grade)).card;
+    }
+
+    return {
+      lifecycle: lifecycleFor(card.state),
+      repetitions: card.reps,
+      lapses: card.lapses,
+      nextDueAt: card.due.toISOString(),
+      stability: card.stability,
+      difficulty: card.difficulty,
+      elapsedDays: card.elapsed_days,
+      scheduledDays: card.scheduled_days,
+      learningSteps: card.learning_steps,
+      fsrsState: card.state,
+      schedulerVersion: FSRS_VERSION,
     };
   }
 }

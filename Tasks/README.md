@@ -74,7 +74,7 @@ This folder is the **source of truth for product development**. Every implementa
 | T018 | Neon cloud schema, migrations, access control, and storage strategy | P0 | T004 | C | DONE |
 | T019 | Neon Auth and guest-to-account migration | P1 | T017, T018 | C | DONE |
 | T020 | Offline sync protocol: outbox, versions, tombstones, and sync contract | P0 | T004, T018 | C | DONE |
-| T021 | Offline-first sync engine implementation | P0 | T020 | C | READY |
+| T021 | Offline-first sync engine implementation | P0 | T020 | C | IN_PROGRESS |
 | T022 | Conflict handling, retry/recovery, and sync-status UX | P0 | T021 | C | BACKLOG |
 | T023 | Backup/restore and multi-device verification | P1 | T019, T022 | C | BACKLOG |
 | T024 | Scheduler interface and FSRS-grade scheduling integration | P1 | T009 | D | READY |

@@ -4,6 +4,8 @@ export type ISODateString = string;
 export type TermKind = 'WORD' | 'PHRASE';
 export type StudyLifecycle = 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED';
 export type ReviewGrade = 'KNEW' | 'FORGOT';
+export type ReviewMode = 'TARGET_TO_MEANING' | 'MEANING_TO_TARGET' | 'CLOZE' | 'LISTENING' | 'TYPING';
+export type ReviewModeResult = 'SELF_GRADED' | 'CORRECT' | 'INCORRECT';
 export type SourceType = 'MANUAL' | 'TEXT' | 'PDF' | 'YOUTUBE' | 'URL' | 'PHOTO' | 'GENERATED';
 
 export interface SyncEntity {
@@ -80,6 +82,13 @@ export interface UserCardState {
   createdAt: ISODateString;
   updatedAt: ISODateString;
   version: number;
+  stability?: number | undefined;
+  difficulty?: number | undefined;
+  elapsedDays?: number | undefined;
+  scheduledDays?: number | undefined;
+  learningSteps?: number | undefined;
+  fsrsState?: number | undefined;
+  schedulerVersion?: string | undefined;
 }
 
 export interface ReviewEvent {
@@ -89,6 +98,9 @@ export interface ReviewEvent {
   grade: ReviewGrade;
   reviewedAt: ISODateString;
   responseMs: number | null;
+  recallMode?: ReviewMode | undefined;
+  modeResult?: ReviewModeResult | undefined;
+  schedulerRating?: number | null | undefined;
 }
 
 export interface StudyCard {

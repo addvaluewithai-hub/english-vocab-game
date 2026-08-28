@@ -4,6 +4,7 @@ import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } f
 import type { StudyCard } from '@/domain/types';
 import { colors, motion, radius, spacing, typography } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
+import { PronunciationButton } from './pronunciation-button';
 import { Chip, Surface } from './primitives';
 
 export function VocabularyCard({ card, revealed, onReveal }: { card: StudyCard; revealed: boolean; onReveal: () => void }) {
@@ -56,6 +57,7 @@ export function VocabularyCard({ card, revealed, onReveal }: { card: StudyCard; 
             <Text selectable style={{ color: colors.ink, fontSize: 34, lineHeight: 46, fontWeight: '800', textAlign: card.referenceLanguageCode === 'ar' ? 'right' : 'left', writingDirection: card.referenceLanguageCode === 'ar' ? 'rtl' : 'ltr' }}>
               {card.translation}
             </Text>
+            <PronunciationButton uri={card.audioUri} compact />
             {card.definition ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>{card.definition}</Text> : null}
             {card.contextSentence ? (
               <View style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, borderCurve: 'continuous', padding: spacing.md }}>
