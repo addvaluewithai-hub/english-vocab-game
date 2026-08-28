@@ -1,4 +1,4 @@
-import { createAuthClient } from '@neondatabase/auth';
+import { createAuthClient, SupabaseAuthAdapter } from '@neondatabase/auth';
 
 export interface AuthUser {
   id: string;
@@ -6,50 +6,87 @@ export interface AuthUser {
   name: string | null;
 }
 
-type AuthResult = {
-  data?: { user?: { id?: string; email?: string; name?: string | null } } | null;
-  error?: { message?: string } | null;
-};
-
-let client: ReturnType<typeof createAuthClient> | null = null;
-
 function authUrl(): string {
   const value = process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim();
-  if (!value) throw new Error('Neon Auth is not configured for this build. Guest study still works offline.');
+  if (!value) {
+    throw new Error(
+      'Neon Auth is not configured for this build. Guest study still works offline.',
+    );
+  }
   return value;
 }
 
-function getClient() {
-  client ??= createAuthClient(authUrl());
+function createClient() {
+  return createAuthClient(authUrl(), {
+    adapter: SupabaseAuthAdapter(),
+  });
+}
+
+type NeonAuthClient = ReturnType<typeof createClient>;
+let client: NeonAuthClient | null = null;
+
+function getClient(): NeonAuthClient {
+  client ??= createClient();
   return client;
 }
 
-function userFrom(result: AuthResult): AuthUser {
-  if (result.error?.message) throw new Error(result.error.message);
-  const user = result.data?.user;
-  if (!user?.id || !user.email) throw new Error('Neon Auth did not return a usable user session.');
-  return { id: user.id, email: user.email, name: user.name ?? null };
+function userFromSupabase(user: {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): AuthUser {
+  if (!user.email) {
+    throw new Error('Neon Auth did not return a usable user session.');
+  }
+
+  const metadataName = user.user_metadata?.name;
+  return {
+    id: user.id,
+    email: user.email,
+    name: typeof metadataName === 'string' && metadataName.trim() ? metadataName : null,
+  };
 }
 
-export async function signInWithEmail(email: string, password: string): Promise<AuthUser> {
-  const result = await getClient().signIn.email({ email: email.trim(), password }) as AuthResult;
-  return userFrom(result);
+export async function signInWithEmail(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
+  const { data, error } = await getClient().signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (error) throw new Error(error.message);
+  if (!data.user) throw new Error('Neon Auth did not return a user after sign in.');
+  return userFromSupabase(data.user);
 }
 
-export async function signUpWithEmail(email: string, password: string, name: string): Promise<AuthUser> {
-  const result = await getClient().signUp.email({ email: email.trim(), password, name: name.trim() || email.trim() }) as AuthResult;
-  return userFrom(result);
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  name: string,
+): Promise<AuthUser> {
+  const cleanEmail = email.trim();
+  const cleanName = name.trim() || cleanEmail;
+  const { data, error } = await getClient().signUp({
+    email: cleanEmail,
+    password,
+    options: { data: { name: cleanName } },
+  });
+  if (error) throw new Error(error.message);
+  if (!data.user) throw new Error('Neon Auth did not return a user after sign up.');
+  return userFromSupabase(data.user);
 }
 
 export async function restoreAuthUser(): Promise<AuthUser | null> {
   if (!process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim()) return null;
-  const result = await getClient().getSession() as AuthResult;
-  if (result.error) return null;
-  if (!result.data?.user?.id || !result.data.user.email) return null;
-  return { id: result.data.user.id, email: result.data.user.email, name: result.data.user.name ?? null };
+
+  const { data, error } = await getClient().getUser();
+  if (error || !data.user) return null;
+  return userFromSupabase(data.user);
 }
 
 export async function signOutFromNeon(): Promise<void> {
   if (!process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim()) return;
-  await getClient().signOut();
+  const { error } = await getClient().signOut();
+  if (error) throw new Error(error.message);
 }
