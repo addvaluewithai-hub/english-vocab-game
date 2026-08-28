@@ -1,6 +1,6 @@
 import type { ImportJobSubmission, RemoteImportJobSnapshot } from '@/imports/contracts';
 import { startPdfExtraction } from '@/imports/pdf-server';
-import { extractTextImportCandidates } from '@/imports/text-server';
+import { extractTextImport } from '@/imports/text-server';
 import { authorizeLanguagePair } from '@/server/import-auth';
 import { setServerJobArtifact } from '@/server/import-job-control';
 import {
@@ -71,9 +71,9 @@ async function processText(
     const existing = await serverJobSnapshot(pair.ownerId, job.id);
     if (existing) return existing;
   }
-  await markServerJobProcessing({ ownerId: pair.ownerId, id: job.id, providerKind: 'OPENAI_RESPONSES' });
+  await markServerJobProcessing({ ownerId: pair.ownerId, id: job.id, providerKind: 'GEMINI_ROUTER' });
   try {
-    const candidates = await extractTextImportCandidates({
+    const extraction = await extractTextImport({
       text: payload.text,
       targetLanguageCode: pair.targetLanguageCode,
       referenceLanguageCode: pair.referenceLanguageCode,
@@ -81,12 +81,21 @@ async function processText(
     await storeServerCandidates({
       ownerId: pair.ownerId,
       jobId: job.id,
-      candidates,
+      candidates: extraction.candidates,
       metrics: {
         durationMs: Date.now() - startedAt,
         inputChars: payload.text.length,
-        candidateCount: candidates.length,
-        provider: 'OPENAI_RESPONSES',
+        candidateCount: extraction.candidates.length,
+        provider: extraction.provider,
+        model: extraction.model,
+        fallbackCount: extraction.fallbackCount,
+        attempts: extraction.attempts.map((attempt) => ({
+          model: attempt.model,
+          status: attempt.status,
+          latencyMs: attempt.latencyMs,
+          ok: attempt.ok,
+        })),
+        ...(extraction.usage ? { usage: extraction.usage } : {}),
       },
     });
     const snapshot = await serverJobSnapshot(pair.ownerId, job.id);
@@ -98,7 +107,7 @@ async function processText(
       id: job.id,
       code: 'TEXT_PROCESSING_FAILED',
       message: caught instanceof Error ? caught.message.slice(0, 300) : 'Text processing failed.',
-      metrics: { durationMs: Date.now() - startedAt },
+      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_ROUTER' },
     });
     throw caught;
   }
