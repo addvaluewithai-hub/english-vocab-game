@@ -40,6 +40,10 @@ function optionalNumber(key: 'usefulnessScore' | 'confidenceScore', value: numbe
   return value === null ? {} : { [key]: value };
 }
 
+function normalizedTerm(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
 export class ImportStagingService {
   constructor(private readonly db: SQLiteDatabase) {}
 
@@ -202,6 +206,57 @@ export class ImportStagingService {
     );
   }
 
+  private async findCanonicalSense(batch: ImportBatch, item: StagedCandidate): Promise<string | null> {
+    const row = await asSqlDatabase(this.db).getFirstAsync<{ sense_id: string }>(
+      `SELECT s.id AS sense_id
+       FROM terms t
+       JOIN senses s ON s.term_id = t.id
+       JOIN cards c ON c.sense_id = s.id
+       WHERE t.language_pair_id = ?
+         AND t.normalized_text = ?
+         AND LOWER(TRIM(s.translation)) = ?
+         AND t.deleted_at IS NULL
+         AND s.deleted_at IS NULL
+         AND c.deleted_at IS NULL
+       ORDER BY s.created_at ASC, s.id ASC
+       LIMIT 1`,
+      batch.languagePairId,
+      normalizedTerm(item.term),
+      item.translation.trim().toLocaleLowerCase(),
+    );
+    return row?.sense_id ?? null;
+  }
+
+  private async attachImportProvenance(batch: ImportBatch, item: StagedCandidate, senseId: string): Promise<void> {
+    const sourceId = `import-source-${batch.id}`;
+    const occurrenceId = `import-occurrence-${item.id}`;
+    const timestamp = new Date().toISOString();
+
+    await this.db.withExclusiveTransactionAsync(async (txn) => {
+      await txn.runAsync(
+        `INSERT OR IGNORE INTO sources(id, type, title, external_id, uri, created_at, updated_at, version, deleted_at)
+         VALUES (?, ?, ?, NULL, NULL, ?, ?, 1, NULL)`,
+        sourceId,
+        batch.sourceType,
+        batch.sourceTitle,
+        batch.createdAt,
+        batch.createdAt,
+      );
+      await txn.runAsync(
+        `INSERT OR IGNORE INTO source_occurrences(
+           id, source_id, sense_id, original_sentence, page_number, timestamp_seconds, locator,
+           created_at, updated_at, version, deleted_at
+         ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, 1, NULL)`,
+        occurrenceId,
+        sourceId,
+        senseId,
+        item.contextSentence?.trim() || null,
+        timestamp,
+        timestamp,
+      );
+    });
+  }
+
   async approveSelected(batch: ImportBatch): Promise<number> {
     const candidates = (await this.listCandidates(batch.id)).filter(
       (item) => item.selected && item.status === 'PENDING' && item.duplicateKind !== 'EXACT',
@@ -211,19 +266,15 @@ export class ImportStagingService {
 
     for (const item of candidates) {
       try {
-        await creator.create({
+        const created = await creator.create({
           languagePairId: batch.languagePairId,
           term: item.term,
           kind: item.term.includes(' ') ? 'PHRASE' : 'WORD',
           translation: item.translation,
           ...(item.definition === undefined ? {} : { definition: item.definition }),
-          ...(item.contextSentence === undefined
-            ? {}
-            : { contextSentence: item.contextSentence }),
-          ...(item.partOfSpeech === undefined
-            ? {}
-            : { partOfSpeech: item.partOfSpeech }),
+          ...(item.partOfSpeech === undefined ? {} : { partOfSpeech: item.partOfSpeech }),
         });
+        await this.attachImportProvenance(batch, item, created.senseId);
         await this.db.runAsync(
           `UPDATE import_candidates SET status = 'APPROVED' WHERE id = ?`,
           item.id,
@@ -231,10 +282,14 @@ export class ImportStagingService {
         approved += 1;
       } catch (error) {
         if (error instanceof Error && error.message.includes('already exist')) {
+          const existingSenseId = await this.findCanonicalSense(batch, item);
+          if (!existingSenseId) throw error;
+          await this.attachImportProvenance(batch, item, existingSenseId);
           await this.db.runAsync(
-            `UPDATE import_candidates SET status = 'REJECTED', duplicate_kind = 'EXACT', selected = 0 WHERE id = ?`,
+            `UPDATE import_candidates SET status = 'APPROVED', duplicate_kind = 'EXACT' WHERE id = ?`,
             item.id,
           );
+          approved += 1;
         } else {
           throw error;
         }
