@@ -125,7 +125,7 @@ export async function markServerJobProcessing(input: {
     UPDATE import_jobs SET status='PROCESSING', provider_kind=${input.providerKind},
       provider_job_id=${input.providerJobId ?? null}, metrics=${JSON.stringify(input.metrics ?? {})}::jsonb,
       error_code=NULL,error_message=NULL,updated_at=${new Date().toISOString()}
-    WHERE owner_id=${input.ownerId} AND id=${input.id}
+    WHERE owner_id=${input.ownerId} AND id=${input.id} AND status='QUEUED'
   `;
 }
 
@@ -140,7 +140,7 @@ export async function markServerJobFailed(input: {
   await sql`
     UPDATE import_jobs SET status='FAILED', error_code=${input.code}, error_message=${input.message},
       metrics=${JSON.stringify(input.metrics ?? {})}::jsonb, updated_at=${new Date().toISOString()}
-    WHERE owner_id=${input.ownerId} AND id=${input.id}
+    WHERE owner_id=${input.ownerId} AND id=${input.id} AND status <> 'CANCELLED'
   `;
 }
 
@@ -151,6 +151,9 @@ export async function storeServerCandidates(input: {
   metrics?: Record<string, unknown>;
 }): Promise<void> {
   const sql = serverSql();
+  const job = await getServerImportJob(input.ownerId, input.jobId);
+  if (!job || job.status === 'CANCELLED') return;
+
   await sql`DELETE FROM import_job_candidates WHERE owner_id=${input.ownerId} AND job_id=${input.jobId}`;
   const createdAt = new Date().toISOString();
   for (const candidate of input.candidates) {
@@ -166,11 +169,15 @@ export async function storeServerCandidates(input: {
       )
     `;
   }
-  await sql`
+  const updated = await sql`
     UPDATE import_jobs SET status='NEEDS_REVIEW', error_code=NULL,error_message=NULL,
       metrics=${JSON.stringify(input.metrics ?? {})}::jsonb, completed_at=${createdAt}, updated_at=${createdAt}
-    WHERE owner_id=${input.ownerId} AND id=${input.jobId}
-  `;
+    WHERE owner_id=${input.ownerId} AND id=${input.jobId} AND status <> 'CANCELLED'
+    RETURNING id
+  ` as unknown as Array<{ id: string }>;
+  if (updated.length === 0) {
+    await sql`DELETE FROM import_job_candidates WHERE owner_id=${input.ownerId} AND job_id=${input.jobId}`;
+  }
 }
 
 export async function serverJobSnapshot(ownerId: string, jobId: string): Promise<RemoteImportJobSnapshot | null> {
