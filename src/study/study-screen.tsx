@@ -9,6 +9,7 @@ import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { ActionButton, EmptyState, ProgressBar, Surface } from '@/components/primitives';
 import { RecallModeCard } from '@/components/recall-mode-card';
 import { SwipeGradeCard } from '@/components/swipe-grade-card';
+import { reconcileReviewReminder } from '@/notifications/review-reminders';
 import { colors, spacing, typography } from '@/theme/tokens';
 import { LearningCardStateRepository, LearningReviewEventRepository } from './learning-repositories';
 import { gradeTypedAnswer, selectRecallMode } from './recall-modes';
@@ -97,7 +98,7 @@ export function StudyScreen() {
 
   async function grade(gradeValue: ReviewGrade, modeResult: ReviewModeResult = 'SELF_GRADED') {
     const current = snapshot?.current;
-    if (!session || !current || submitting) return;
+    if (!session || !current || !pair || submitting) return;
     const mode = selectRecallMode(current.card);
     if (mode !== 'TYPING' && !revealed) return;
     setSubmitting(true);
@@ -109,6 +110,7 @@ export function StudyScreen() {
       setTypedAnswer('');
       cardStartedAt.current = Date.now();
       recallMs.current = null;
+      void reconcileReviewReminder(sqlite, pair.id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not save this review.');
     } finally {
@@ -138,6 +140,7 @@ export function StudyScreen() {
           <Text accessibilityRole="header" accessibilityLiveRegion="polite" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800', textAlign: 'center' }}>Session complete</Text>
           <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center', lineHeight: 25 }}>{snapshot.summary.reviewed} reviews · {snapshot.summary.knew} knew · {snapshot.summary.forgot} forgot · {snapshot.summary.retries} retries</Text>
           <ActionButton label="Check for due cards" onPress={() => { setActiveStudySession(null); void restartSession(); }} />
+          <Link href="/stats" asChild><ActionButton label="See learning stats" /></Link>
           <Link href="/bank" asChild><ActionButton label="Vocabulary bank" /></Link>
         </Surface>
       </ScrollView>
