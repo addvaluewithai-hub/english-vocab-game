@@ -1,4 +1,5 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { IMPORT_POLICY } from './policy';
 import { isLearnerLevel, type LearnerLevel } from './ranking';
 import { createImportReadUrl, IMPORT_BUCKET } from '@/server/object-storage';
 import {
@@ -37,7 +38,7 @@ export interface PdfExtraction {
   usage?: GeminiUsage;
 }
 
-export const PDF_CANDIDATE_LIMIT = 40;
+export const PDF_CANDIDATE_LIMIT = IMPORT_POLICY.pdf.maxCandidates;
 
 function parseJson(text: string): unknown {
   const trimmed = text.trim();
