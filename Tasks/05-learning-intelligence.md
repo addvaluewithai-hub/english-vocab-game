@@ -102,6 +102,9 @@ Goal: make the app meaningfully better at long-term retention without losing the
 - Tapping a reminder lands in the correct language pair/study context.
 - Behavior is verified on iOS and Android development/beta builds.
 
+### Verification note
+Implementation, unit-level scheduling logic, deep-link wiring, and Android/iOS bundle validation are complete on the T021–T030 milestone. The final acceptance criterion remains pending until the linked Expo project (`dragon2026s-team/english-vocab`) is exercised on real iOS and Android development/beta builds using the device checklist in `docs/device-verification-checklist.md`. Keep T028 non-`DONE` until that verification is recorded.
+
 ---
 
 ## T029 — Adaptive card enrichment rules by vocabulary/sense type
