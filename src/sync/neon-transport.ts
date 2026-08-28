@@ -43,6 +43,12 @@ function sameVersionPayload(
   return true;
 }
 
+function splitCollectionItemId(entityId: string): [string, string] | null {
+  const separator = entityId.indexOf(':');
+  if (separator <= 0 || separator >= entityId.length - 1) return null;
+  return [entityId.slice(0, separator), entityId.slice(separator + 1)];
+}
+
 async function selectEntity(
   entityType: SyncEntityType,
   entityId: string,
@@ -57,8 +63,9 @@ async function selectEntity(
   } else if (entityType === 'app_settings') {
     query = query.eq('key', entityId);
   } else {
-    const [collectionId, cardId] = entityId.split('|');
-    if (!collectionId || !cardId) return null;
+    const ids = splitCollectionItemId(entityId);
+    if (!ids) return null;
+    const [collectionId, cardId] = ids;
     query = query.eq('collection_id', collectionId).eq('card_id', cardId);
   }
 
