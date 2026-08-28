@@ -10,6 +10,7 @@ export interface EnrichmentSubject {
   contextSentence: string | null;
   imageUri: string | null;
   audioUri: string | null;
+  isVisuallyConcrete?: boolean;
 }
 
 export interface EnrichmentRecommendation {
@@ -47,8 +48,11 @@ export function recommendEnrichment(card: EnrichmentSubject): EnrichmentRecommen
   }
 
   if (partOfSpeech === 'noun') {
-    if (!hasImage) add(list, 'IMAGE', 1, 'Concrete nouns often benefit from a visual cue when the sense is visually representable.');
-    if (!hasContext) add(list, 'EXAMPLE', 2, 'An example keeps the noun tied to a useful sense rather than an isolated label.');
+    if (card.isVisuallyConcrete === true && !hasImage) {
+      add(list, 'IMAGE', 1, 'This sense is explicitly marked as visually concrete, so a visual cue can help.');
+    }
+    if (!hasContext) add(list, 'EXAMPLE', 1, 'An example keeps the noun tied to the intended sense rather than an isolated label.');
+    if (!hasExplanation) add(list, 'EXPLANATION', 2, 'A concise explanation protects against same-word, different-sense confusion.');
     if (!hasAudio) add(list, 'AUDIO', 2, 'Pronunciation reinforces the spoken form without changing the meaning prompt.');
   } else if (partOfSpeech === 'verb') {
     if (!hasContext) add(list, 'CONTEXT', 1, 'Verbs are learned more reliably with argument and tense context.');
