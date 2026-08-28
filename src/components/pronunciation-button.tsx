@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { cachedPronunciationAudioUri, resolvePronunciationAudioUri } from '@/audio/pronunciation-cache';
 import { ActionButton } from './primitives';
 import { colors, spacing, typography } from '@/theme/tokens';
 
@@ -13,9 +14,11 @@ export function PronunciationButton({
   pronunciation?: string | null;
   compact?: boolean;
 }) {
-  const player = useAudioPlayer(uri, { downloadFirst: true, updateInterval: 500 });
+  const player = useAudioPlayer(null, { updateInterval: 500 });
   const status = useAudioPlayerStatus(player);
+  const loadedUri = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -25,23 +28,38 @@ export function PronunciationButton({
   }, [player]);
 
   async function replay(): Promise<void> {
-    if (!uri) return;
+    if (!uri || preparing) return;
     setError(null);
+    setPreparing(true);
     try {
       await setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: false });
-      await player.seekTo(0);
+      const source = cachedPronunciationAudioUri(uri) ?? await resolvePronunciationAudioUri(uri);
+      if (loadedUri.current !== source) {
+        player.replace(source);
+        loadedUri.current = source;
+      } else {
+        await player.seekTo(0);
+      }
       player.play();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Pronunciation audio is unavailable.');
+    } finally {
+      setPreparing(false);
     }
   }
 
   if (!uri && !pronunciation) return null;
 
+  const buttonLabel = preparing
+    ? 'Preparing audio…'
+    : status.playing
+      ? '↻ Replay audio'
+      : '▶ Pronunciation';
+
   return (
     <View style={{ gap: spacing.xs, alignItems: compact ? 'center' : 'flex-start' }}>
       {pronunciation ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pronunciation}</Text> : null}
-      {uri ? <ActionButton accessibilityLabel={status.playing ? 'Replay pronunciation' : 'Play pronunciation'} label={status.playing ? '↻ Replay audio' : '▶ Pronunciation'} onPress={() => void replay()} /> : null}
+      {uri ? <ActionButton accessibilityLabel={preparing ? 'Preparing pronunciation audio' : status.playing ? 'Replay pronunciation' : 'Play pronunciation'} label={buttonLabel} onPress={() => void replay()} /> : null}
       {error ? <Text accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: typography.small }}>Audio unavailable. You can keep studying.</Text> : null}
     </View>
   );
