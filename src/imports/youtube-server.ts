@@ -1,4 +1,5 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { IMPORT_POLICY } from './policy';
 import { isLearnerLevel, type LearnerLevel } from './ranking';
 import { normalizeYouTubeUrl } from './youtube';
 import {
@@ -8,7 +9,7 @@ import {
   type GeminiUsage,
 } from '@/server/gemini-router';
 
-const MAX_YOUTUBE_CANDIDATES = 32;
+const MAX_YOUTUBE_CANDIDATES = IMPORT_POLICY.youtube.maxCandidates;
 
 interface YouTubeCandidateRow {
   candidateKey: string;
