@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -83,7 +83,7 @@ export function StudyScreen() {
     };
   }, [service, vocabulary]);
 
-  const restartSession = useCallback(async () => {
+  async function restartSession() {
     setError(null);
     setRevealed(false);
     setSubmitting(false);
@@ -104,33 +104,30 @@ export function StudyScreen() {
           : 'Could not start the study session.',
       );
     }
-  }, [service, vocabulary]);
+  }
 
-  const grade = useCallback(
-    async (gradeValue: ReviewGrade) => {
-      if (!session || !snapshot?.current || !revealed || submitting) return;
+  async function grade(gradeValue: ReviewGrade) {
+    if (!session || !snapshot?.current || !revealed || submitting) return;
 
-      setSubmitting(true);
-      try {
-        const accepted = await session.gradeCurrent(gradeValue, recallMs.current);
-        if (!accepted) return;
+    setSubmitting(true);
+    try {
+      const accepted = await session.gradeCurrent(gradeValue, recallMs.current);
+      if (!accepted) return;
 
-        setSnapshot(session.snapshot);
-        setRevealed(false);
-        cardStartedAt.current = Date.now();
-        recallMs.current = null;
-      } catch (caught) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : 'Could not save this review.',
-        );
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [revealed, session, snapshot, submitting],
-  );
+      setSnapshot(session.snapshot);
+      setRevealed(false);
+      cardStartedAt.current = Date.now();
+      recallMs.current = null;
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not save this review.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (error) {
     return (
