@@ -11,6 +11,10 @@ The project is intentionally testable before store release. The first supported 
 
 `app.json` is linked to this exact existing EAS project through `expo.extra.eas.projectId`, so preview builds must not create a second Expo project.
 
+## Fastest preview: browser link
+
+Pull requests automatically trigger an EAS Hosting preview deployment. Expo posts the unique preview URL back to the pull request when the deployment succeeds. Use this browser preview for fast UI/navigation feedback; native-only behavior such as notifications, haptics, persistent audio/file handling, and device-specific offline behavior must still be verified with a device build.
+
 ## First preview build
 
 The preferred no-local-setup path is Expo Dashboard → **Builds** → **Build from GitHub**:
