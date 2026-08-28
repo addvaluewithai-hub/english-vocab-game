@@ -182,10 +182,11 @@ export async function pollPdfExtraction(providerJobId: string, objectKey: string
   const text = outputText(body);
   if (!text) throw new Error('PDF_PROVIDER_EMPTY');
   const parsed = JSON.parse(text) as PdfResult;
+  const usage = body.usage && typeof body.usage === 'object' ? body.usage as Record<string, unknown> : undefined;
   return {
     status: 'COMPLETED',
     candidates: normalizedResult(parsed, objectKey),
-    usage: body.usage && typeof body.usage === 'object' ? body.usage as Record<string, unknown> : undefined,
+    ...(usage ? { usage } : {}),
   };
 }
 
