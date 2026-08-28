@@ -28,26 +28,32 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  payload jsonb := to_jsonb(NEW);
   row_owner text;
   row_id text;
   row_version bigint;
   row_deleted_at timestamptz;
   event_operation text;
 BEGIN
-  row_owner := NEW.owner_id;
-  row_id := COALESCE(NEW.id, NEW.card_id, NEW.key, NEW.client_id);
+  row_owner := payload ->> 'owner_id';
+  row_id := COALESCE(
+    payload ->> 'id',
+    payload ->> 'card_id',
+    payload ->> 'key',
+    concat_ws(':', payload ->> 'collection_id', payload ->> 'card_id')
+  );
 
   IF TG_TABLE_NAME = 'review_events' THEN
     row_version := 1;
     event_operation := 'APPEND';
   ELSE
-    row_version := COALESCE(NEW.version, 1);
-    BEGIN
-      row_deleted_at := NEW.deleted_at;
-    EXCEPTION WHEN undefined_column THEN
-      row_deleted_at := NULL;
-    END;
+    row_version := COALESCE((payload ->> 'version')::bigint, 1);
+    row_deleted_at := NULLIF(payload ->> 'deleted_at', '')::timestamptz;
     event_operation := CASE WHEN row_deleted_at IS NOT NULL THEN 'DELETE' ELSE 'UPSERT' END;
+  END IF;
+
+  IF row_owner IS NULL OR row_id IS NULL THEN
+    RAISE EXCEPTION 'sync change trigger could not identify owner/entity for %', TG_TABLE_NAME;
   END IF;
 
   INSERT INTO public.sync_changes(owner_id, entity_type, entity_id, entity_version, operation)
