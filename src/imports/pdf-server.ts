@@ -1,4 +1,5 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { isLearnerLevel, type LearnerLevel } from './ranking';
 import { createImportReadUrl, IMPORT_BUCKET } from '@/server/object-storage';
 import {
   GEMINI_URL_MODEL_CHAIN,
@@ -22,6 +23,7 @@ interface PdfResult {
     pageNumber: number | null;
     confidence: number;
     usefulness: number;
+    cefrLevel: LearnerLevel | null;
     isVisuallyConcrete: boolean | null;
   }>;
 }
@@ -85,6 +87,7 @@ function parsePdfResult(text: string): PdfResult {
       pageNumber,
       confidence,
       usefulness,
+      cefrLevel: isLearnerLevel(row.cefrLevel) ? row.cefrLevel : null,
       isVisuallyConcrete: typeof row.isVisuallyConcrete === 'boolean' ? row.isVisuallyConcrete : null,
     });
     if (candidates.length >= PDF_CANDIDATE_LIMIT) break;
@@ -126,6 +129,7 @@ function normalizedResult(result: PdfResult, objectKey: string): NormalizedImpor
       },
       confidence: row.confidence,
       usefulness: row.usefulness,
+      cefrLevel: row.cefrLevel,
       duplicateHint: null,
       isVisuallyConcrete: row.isVisuallyConcrete,
     });
@@ -138,6 +142,7 @@ export async function extractPdfVocabulary(input: {
   objectKey: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
+  learnerLevel: LearnerLevel;
 }): Promise<PdfExtraction> {
   const fileUrl = await createImportReadUrl(input.objectKey);
   const system = 'You are a conservative vocabulary curator. Inspect only the supplied PDF URL. Output machine-readable JSON only and prefer precision over candidate count.';
@@ -147,14 +152,16 @@ export async function extractPdfVocabulary(input: {
     'If the document is primarily scanned images without a usable text layer, set documentStatus to SCANNED_UNSUPPORTED and return no candidates.',
     'If it is encrypted, inaccessible, malformed, or unreadable, set documentStatus to ENCRYPTED_OR_UNREADABLE and return no candidates.',
     `Vocabulary is in ${input.targetLanguageCode}; meanings/translations must be in ${input.referenceLanguageCode}.`,
+    `The learner is approximately CEFR ${input.learnerLevel}; prefer useful vocabulary around that level and up to one level above without discarding contextually important phrases.`,
     `Return at most ${PDF_CANDIDATE_LIMIT} high-value words or multi-word phrases, not every token.`,
     'For long documents, inspect representative sections across the document, consolidate repeated vocabulary globally, and keep the best representative occurrence.',
     'Use the sense from the cited page context. Preserve multi-word expressions.',
     'pageNumber must be the correct 1-based PDF page for the representative occurrence when it can be verified; otherwise use null.',
     'Context must be a short exact or minimally normalized sentence from that page when confidently available; otherwise null.',
+    'cefrLevel must be A1, A2, B1, B2, C1, C2, or null when uncertain.',
     'Never invent page numbers or quotations. Lower confidence when uncertain.',
     'Return JSON only, no Markdown, in this shape:',
-    '{"documentStatus":"TEXT_PDF","pageCount":12,"candidates":[{"candidateKey":"...","term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"pageNumber":3,"confidence":0.9,"usefulness":0.9,"isVisuallyConcrete":null}]}',
+    '{"documentStatus":"TEXT_PDF","pageCount":12,"candidates":[{"candidateKey":"...","term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"pageNumber":3,"confidence":0.9,"usefulness":0.9,"cefrLevel":"B1","isVisuallyConcrete":null}]}',
   ].join('\n');
 
   const routed = await routeGeminiContent({
