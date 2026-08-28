@@ -97,7 +97,7 @@ describe('learning intelligence', () => {
       audioUri: null,
       isVisuallyConcrete: true,
     });
-    expect(concreteNoun[0]?.kind).toBe('IMAGE');
+    expect(concreteNoun.some((item) => item.kind === 'IMAGE' && item.priority === 1)).toBe(true);
   });
 
   it('creates stable source-level import idempotency keys', () => {
