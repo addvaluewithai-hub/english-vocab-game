@@ -5,6 +5,13 @@ export interface AuthorizedLanguagePair {
   referenceLanguageCode: string;
 }
 
+export interface AuthorizedImportJob {
+  id: string;
+  ownerId: string;
+  languagePairId: string;
+  sourceType: string;
+}
+
 function bearerToken(request: Request): string {
   const header = request.headers.get('Authorization')?.trim() ?? '';
   const match = /^Bearer\s+(.+)$/i.exec(header);
@@ -18,33 +25,51 @@ function dataApiUrl(): string {
   return value.replace(/\/$/, '');
 }
 
-export async function authorizeLanguagePair(
+async function authorizedRow(
   request: Request,
-  languagePairId: string,
-): Promise<AuthorizedLanguagePair> {
+  table: string,
+  select: string,
+  id: string,
+): Promise<Record<string, unknown> | null> {
   const token = bearerToken(request);
-  const query = new URLSearchParams({
-    select: 'id,owner_id,target_language_code,reference_language_code',
-    id: `eq.${languagePairId}`,
-    limit: '1',
-  });
-  const response = await fetch(`${dataApiUrl()}/language_pairs?${query.toString()}`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+  const query = new URLSearchParams({ select, id: `eq.${id}`, limit: '1' });
+  const response = await fetch(`${dataApiUrl()}/${table}?${query.toString()}`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
   });
   if (response.status === 401) throw new Error('AUTH_REQUIRED');
   if (!response.ok) throw new Error(`AUTH_VALIDATION_FAILED:${response.status}`);
   const body: unknown = await response.json();
-  const row = Array.isArray(body) && body.length > 0 && body[0] && typeof body[0] === 'object'
+  return Array.isArray(body) && body.length > 0 && body[0] && typeof body[0] === 'object'
     ? body[0] as Record<string, unknown>
     : null;
+}
+
+export async function authorizeLanguagePair(
+  request: Request,
+  languagePairId: string,
+): Promise<AuthorizedLanguagePair> {
+  const row = await authorizedRow(
+    request,
+    'language_pairs',
+    'id,owner_id,target_language_code,reference_language_code',
+    languagePairId,
+  );
   if (!row) throw new Error('LANGUAGE_PAIR_FORBIDDEN');
   return {
     id: String(row.id),
     ownerId: String(row.owner_id),
     targetLanguageCode: String(row.target_language_code),
     referenceLanguageCode: String(row.reference_language_code),
+  };
+}
+
+export async function authorizeImportJob(request: Request, jobId: string): Promise<AuthorizedImportJob> {
+  const row = await authorizedRow(request, 'import_jobs', 'id,owner_id,language_pair_id,source_type', jobId);
+  if (!row) throw new Error('IMPORT_JOB_FORBIDDEN');
+  return {
+    id: String(row.id),
+    ownerId: String(row.owner_id),
+    languagePairId: String(row.language_pair_id),
+    sourceType: String(row.source_type),
   };
 }
