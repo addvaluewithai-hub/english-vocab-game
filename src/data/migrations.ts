@@ -1,8 +1,9 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { MIGRATION_003 } from './migration-v3';
 import { MIGRATION_004 } from './migration-v4-learning';
+import { MIGRATION_005 } from './migration-v5-enrichment-imports';
 
-export const LATEST_DATABASE_VERSION = 4;
+export const LATEST_DATABASE_VERSION = 5;
 
 const MIGRATION_001 = `
 CREATE TABLE IF NOT EXISTS language_pairs (
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS terms (
 CREATE INDEX IF NOT EXISTS idx_terms_language_pair ON terms(language_pair_id, normalized_text);
 
 CREATE TABLE IF NOT EXISTS senses (
-  id TEXT PRIMARY KEY NOT NULL,
+  id TEXT PRIMARY KEY NOT NULL REFERENCES terms(id),
   term_id TEXT NOT NULL REFERENCES terms(id),
   translation TEXT NOT NULL,
   definition TEXT,
@@ -198,6 +199,7 @@ export const DATABASE_MIGRATIONS: readonly { version: number; sql: string }[] = 
   { version: 2, sql: MIGRATION_002 },
   { version: 3, sql: MIGRATION_003 },
   { version: 4, sql: MIGRATION_004 },
+  { version: 5, sql: MIGRATION_005 },
 ];
 
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
