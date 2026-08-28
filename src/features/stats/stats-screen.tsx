@@ -25,10 +25,7 @@ export function StatsScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!pair) {
-      setStats(null);
-      return () => { cancelled = true; };
-    }
+    if (!pair) return () => { cancelled = true; };
     void loadLearningStats(sqlite, pair.id)
       .then((next) => {
         if (cancelled) return;
