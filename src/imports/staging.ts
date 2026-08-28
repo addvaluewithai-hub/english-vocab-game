@@ -14,6 +14,11 @@ export interface ProposedVocabulary {
   partOfSpeech?: string;
   usefulnessScore?: number;
   confidenceScore?: number;
+  sourceUri?: string;
+  sourceLocator?: string;
+  sourcePageNumber?: number;
+  sourceTimestampSeconds?: number;
+  isVisuallyConcrete?: boolean;
 }
 
 export interface StagedCandidate extends ProposedVocabulary {
@@ -32,11 +37,11 @@ export interface ImportBatch {
   createdAt: string;
 }
 
-function optionalString(key: 'definition' | 'contextSentence' | 'partOfSpeech', value: string | null) {
+function optionalString(key: 'definition' | 'contextSentence' | 'partOfSpeech' | 'sourceUri' | 'sourceLocator', value: string | null) {
   return value === null ? {} : { [key]: value };
 }
 
-function optionalNumber(key: 'usefulnessScore' | 'confidenceScore', value: number | null) {
+function optionalNumber(key: 'usefulnessScore' | 'confidenceScore' | 'sourcePageNumber' | 'sourceTimestampSeconds', value: number | null) {
   return value === null ? {} : { [key]: value };
 }
 
@@ -95,9 +100,11 @@ export class ImportStagingService {
             : 'NONE';
 
         await txn.runAsync(
-          `INSERT INTO import_candidates(id, batch_id, term, translation, definition, context_sentence, part_of_speech,
-             usefulness_score, confidence_score, duplicate_kind, selected, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+          `INSERT INTO import_candidates(
+             id, batch_id, term, translation, definition, context_sentence, part_of_speech,
+             usefulness_score, confidence_score, duplicate_kind, selected, status, created_at,
+             source_uri, source_locator, source_page_number, source_timestamp_seconds, is_visually_concrete
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?)`,
           createId('candidate'),
           batchId,
           term,
@@ -110,6 +117,11 @@ export class ImportStagingService {
           duplicateKind,
           duplicateKind === 'EXACT' ? 0 : 1,
           createdAt,
+          candidate.sourceUri?.trim() || null,
+          candidate.sourceLocator?.trim() || null,
+          candidate.sourcePageNumber ?? null,
+          candidate.sourceTimestampSeconds ?? null,
+          candidate.isVisuallyConcrete === undefined ? null : candidate.isVisuallyConcrete ? 1 : 0,
         );
       }
     });
@@ -156,6 +168,11 @@ export class ImportStagingService {
       duplicate_kind: DuplicateKind;
       selected: number;
       status: StagedCandidate['status'];
+      source_uri: string | null;
+      source_locator: string | null;
+      source_page_number: number | null;
+      source_timestamp_seconds: number | null;
+      is_visually_concrete: number | null;
     }>(
       `SELECT * FROM import_candidates WHERE batch_id = ? ORDER BY created_at, id`,
       batchId,
@@ -171,6 +188,11 @@ export class ImportStagingService {
       ...optionalString('partOfSpeech', row.part_of_speech),
       ...optionalNumber('usefulnessScore', row.usefulness_score),
       ...optionalNumber('confidenceScore', row.confidence_score),
+      ...optionalString('sourceUri', row.source_uri),
+      ...optionalString('sourceLocator', row.source_locator),
+      ...optionalNumber('sourcePageNumber', row.source_page_number),
+      ...optionalNumber('sourceTimestampSeconds', row.source_timestamp_seconds),
+      ...(row.is_visually_concrete === null ? {} : { isVisuallyConcrete: row.is_visually_concrete === 1 }),
       duplicateKind: row.duplicate_kind,
       selected: row.selected === 1,
       status: row.status,
@@ -235,10 +257,11 @@ export class ImportStagingService {
     await this.db.withExclusiveTransactionAsync(async (txn) => {
       await txn.runAsync(
         `INSERT OR IGNORE INTO sources(id, type, title, external_id, uri, created_at, updated_at, version, deleted_at)
-         VALUES (?, ?, ?, NULL, NULL, ?, ?, 1, NULL)`,
+         VALUES (?, ?, ?, NULL, ?, ?, ?, 1, NULL)`,
         sourceId,
         batch.sourceType,
         batch.sourceTitle,
+        item.sourceUri?.trim() || null,
         batch.createdAt,
         batch.createdAt,
       );
@@ -246,11 +269,14 @@ export class ImportStagingService {
         `INSERT OR IGNORE INTO source_occurrences(
            id, source_id, sense_id, original_sentence, page_number, timestamp_seconds, locator,
            created_at, updated_at, version, deleted_at
-         ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, 1, NULL)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)`,
         occurrenceId,
         sourceId,
         senseId,
         item.contextSentence?.trim() || null,
+        item.sourcePageNumber ?? null,
+        item.sourceTimestampSeconds ?? null,
+        item.sourceLocator?.trim() || null,
         timestamp,
         timestamp,
       );
