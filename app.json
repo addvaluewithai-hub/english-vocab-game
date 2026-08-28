@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Vocab Flow",
-    "slug": "english-vocab-game",
+    "slug": "english-vocab",
+    "owner": "dragon2026s-team",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "vocabflow",
