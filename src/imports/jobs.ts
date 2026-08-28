@@ -1,73 +1,23 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { SourceType } from '@/domain/types';
 import { ImportStagingService, type ProposedVocabulary } from './staging';
 import { createId } from '@/utils/id';
+import type {
+  ImportJob,
+  ImportJobStatus,
+  ImportJobTransport,
+  ImportSourceType,
+  NormalizedImportCandidate,
+  RemoteImportJobSnapshot,
+} from './contracts';
 
-export type ImportSourceType = Exclude<SourceType, 'MANUAL' | 'GENERATED'>;
-export type ImportJobStatus = 'QUEUED' | 'PROCESSING' | 'NEEDS_REVIEW' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-
-export interface NormalizedSourceOccurrence {
-  sentence: string | null;
-  sourceUri: string | null;
-  locator: string | null;
-  pageNumber: number | null;
-  timestampSeconds: number | null;
-}
-
-export interface NormalizedImportCandidate {
-  candidateKey: string;
-  term: string;
-  translation: string;
-  definition: string | null;
-  partOfSpeech: string | null;
-  context: string | null;
-  occurrence: NormalizedSourceOccurrence;
-  confidence: number | null;
-  usefulness: number | null;
-  duplicateHint: 'NONE' | 'EXACT' | 'LIKELY' | null;
-  isVisuallyConcrete: boolean | null;
-}
-
-export interface ImportJob {
-  id: string;
-  languagePairId: string;
-  sourceType: ImportSourceType;
-  sourceFingerprint: string;
-  sourceLabel: string | null;
-  status: ImportJobStatus;
-  serverJobId: string | null;
-  candidates: NormalizedImportCandidate[] | null;
-  errorCode: string | null;
-  errorMessage: string | null;
-  retryCount: number;
-  artifactExpiresAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RemoteImportJobSnapshot {
-  serverJobId: string;
-  status: Exclude<ImportJobStatus, 'NEEDS_REVIEW'> | 'NEEDS_REVIEW';
-  candidates?: NormalizedImportCandidate[];
-  errorCode?: string | null;
-  errorMessage?: string | null;
-  artifactExpiresAt?: string | null;
-}
-
-export interface ImportJobTransport {
-  submit(input: {
-    idempotencyKey: string;
-    localJobId: string;
-    languagePairId: string;
-    sourceType: ImportSourceType;
-    sourceFingerprint: string;
-    sourceLabel: string | null;
-    sourcePayload: unknown;
-  }): Promise<RemoteImportJobSnapshot>;
-  get(serverJobId: string): Promise<RemoteImportJobSnapshot>;
-  retry(serverJobId: string): Promise<RemoteImportJobSnapshot>;
-  cancel(serverJobId: string): Promise<void>;
-}
+export type {
+  ImportJob,
+  ImportJobStatus,
+  ImportJobTransport,
+  ImportSourceType,
+  NormalizedImportCandidate,
+  RemoteImportJobSnapshot,
+} from './contracts';
 
 type ImportJobRow = {
   id: string;
@@ -136,6 +86,11 @@ function toStagingCandidate(candidate: NormalizedImportCandidate): ProposedVocab
     ...(candidate.partOfSpeech ? { partOfSpeech: candidate.partOfSpeech } : {}),
     ...(candidate.usefulness === null ? {} : { usefulnessScore: candidate.usefulness }),
     ...(candidate.confidence === null ? {} : { confidenceScore: candidate.confidence }),
+    ...(candidate.occurrence.sourceUri ? { sourceUri: candidate.occurrence.sourceUri } : {}),
+    ...(candidate.occurrence.locator ? { sourceLocator: candidate.occurrence.locator } : {}),
+    ...(candidate.occurrence.pageNumber === null ? {} : { sourcePageNumber: candidate.occurrence.pageNumber }),
+    ...(candidate.occurrence.timestampSeconds === null ? {} : { sourceTimestampSeconds: candidate.occurrence.timestampSeconds }),
+    ...(candidate.isVisuallyConcrete === null ? {} : { isVisuallyConcrete: candidate.isVisuallyConcrete }),
   };
 }
 
