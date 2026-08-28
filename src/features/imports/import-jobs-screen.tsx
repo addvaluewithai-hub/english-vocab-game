@@ -55,10 +55,17 @@ export function ImportJobsScreen() {
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ gap: spacing.xs }}>
         <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Smart imports</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Jobs are durable on this device. Long extraction work runs outside the study UI, and candidates must pass review before entering your bank.</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Turn material you already consume into a curated review queue. Nothing reaches your vocabulary bank before your approval.</Text>
       </View>
+
+      <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+        <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Start an import</Text>
+        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>Paste prose for a curated extraction, or paste a word/phrase list with explicit meanings for a fully local import.</Text>
+        <Link href="/imports/text" asChild><ActionButton label="Paste text or vocabulary list" /></Link>
+      </Surface>
+
       {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted }}>{message}</Text></Surface> : null}
-      {jobs.length === 0 ? <EmptyState title="No import jobs yet" body="The shared job framework is ready. Text, PDF, YouTube, URL, and photo source adapters are added in the next import tasks." /> : jobs.map((job) => (
+      {jobs.length === 0 ? <EmptyState title="No import history yet" body="Your text imports will appear here. PDF, YouTube, URL, and photo adapters use the same job pipeline as they are enabled." /> : jobs.map((job) => (
         <Surface key={job.id} style={{ padding: spacing.md, gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ flex: 1, gap: spacing.xs }}>
