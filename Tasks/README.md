@@ -85,12 +85,12 @@ This folder is the **source of truth for product development**. Every implementa
 | T029 | Adaptive card enrichment rules by vocabulary/sense type | P2 | T025, T026 | D/E | DONE |
 | T030 | Import job architecture and ingestion pipeline framework | P1 | T016, T018, T021 | E | DONE |
 | T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | IN_PROGRESS |
-| T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | READY |
-| T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | READY |
+| T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | IN_PROGRESS |
+| T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | IN_PROGRESS |
 | T034 | Web article/URL import with clean-text extraction and provenance | P2 | T030 | E | READY |
 | T035 | Photo/image vocabulary import with OCR workflow and review staging | P2 | T030 | E | READY |
 | T036 | AI usefulness/level filtering, sense selection, and import approval ranking | P1 | T031, T032, T033 | E | BACKLOG |
-| T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | READY |
+| T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | BACKLOG |
 | T038 | Import failures, limits, cost controls, observability, and retry UX | P1 | T030, T031, T032, T033 | E | BACKLOG |
 | T039 | Privacy-safe analytics and production error reporting | P1 | T010, T021 | F | READY |
 | T040 | Security/privacy controls, data export, account deletion, and retention policy | P0 | T018, T019 | F | READY |
@@ -133,3 +133,5 @@ A task is `DONE` only when:
 ## Planning policy
 
 This roadmap should evolve when implementation teaches us something new, but changes should be deliberate. If a task becomes too large for one focused work session, split it before implementation and update dependencies here. If two tasks are consistently inseparable, merge them and preserve the original intent in the commit history.
+
+**Current deliberate defer:** T037 generated/fetched visual enrichment is intentionally backlogged until after the MVP validates recurring study and smart-import usage. Existing pronunciation/audio and adaptive enrichment rules remain in scope; automatic generated imagery must not delay Gate E or Gate F.
