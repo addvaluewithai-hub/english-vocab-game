@@ -18,6 +18,7 @@ describe('text imports', () => {
     expect(candidates.map((item) => item.term)).toEqual(['look forward to', 'reliable', 'carry on']);
     expect(candidates[0]?.translation).toBe('يتطلع إلى');
     expect(candidates.every((item) => item.confidence === 0.99)).toBe(true);
+    expect(candidates.every((item) => item.cefrLevel === null)).toBe(true);
   });
 
   it('does not mistake normal prose for a vocabulary list', () => {
@@ -42,12 +43,13 @@ describe('text imports', () => {
       context: `Context ${index}.`,
       confidence: index === 0 ? 2 : 0.8,
       usefulness: index === 0 ? -1 : 0.7,
+      cefrLevel: index === 0 ? 'B2' as const : 'B1' as const,
       isVisuallyConcrete: false,
     }));
     rows.splice(1, 0, { ...rows[0]! });
     const candidates = normalizeAiTextCandidates(rows);
     expect(candidates).toHaveLength(MAX_TEXT_CANDIDATES);
-    expect(candidates[0]).toMatchObject({ term: 'phrase 0', confidence: 1, usefulness: 0 });
+    expect(candidates[0]).toMatchObject({ term: 'phrase 0', confidence: 1, usefulness: 0, cefrLevel: 'B2' });
     expect(candidates[0]?.occurrence.sentence).toBe('Context 0.');
   });
 
