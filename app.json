@@ -21,6 +21,11 @@
     "plugins": ["expo-router", "expo-sqlite", "expo-notifications"],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "63fa98c3-c2ea-4146-95ea-a104d116f773"
+      }
     }
   }
 }
