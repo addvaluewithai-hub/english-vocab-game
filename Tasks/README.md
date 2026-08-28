@@ -84,7 +84,7 @@ This folder is the **source of truth for product development**. Every implementa
 | T028 | Daily due reminders and notification preferences | P1 | T017, T024 | D | BLOCKED |
 | T029 | Adaptive card enrichment rules by vocabulary/sense type | P2 | T025, T026 | D/E | DONE |
 | T030 | Import job architecture and ingestion pipeline framework | P1 | T016, T018, T021 | E | DONE |
-| T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | READY |
+| T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | IN_PROGRESS |
 | T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | READY |
 | T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | READY |
 | T034 | Web article/URL import with clean-text extraction and provenance | P2 | T030 | E | READY |
