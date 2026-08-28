@@ -1,9 +1,10 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { IMPORT_POLICY } from './policy';
 import { isLearnerLevel, type LearnerLevel } from './ranking';
 
-export const MAX_PASTED_TEXT_CHARS = 12_000;
-export const MAX_TEXT_CANDIDATES = 24;
-export const MAX_LIST_CANDIDATES = 60;
+export const MAX_PASTED_TEXT_CHARS = IMPORT_POLICY.text.maxCharacters;
+export const MAX_TEXT_CANDIDATES = IMPORT_POLICY.text.maxCandidates;
+export const MAX_LIST_CANDIDATES = IMPORT_POLICY.text.maxListCandidates;
 
 function normalizeWhitespace(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
