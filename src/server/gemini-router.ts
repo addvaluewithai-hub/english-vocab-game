@@ -16,6 +16,12 @@ export interface GeminiAttempt {
   ok: boolean;
 }
 
+export interface GeminiUsage {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}
+
 export type GeminiRouteResult =
   | {
       ok: true;
@@ -25,11 +31,7 @@ export type GeminiRouteResult =
       latencyMs: number;
       fallbackCount: number;
       attempts: GeminiAttempt[];
-      usage?: {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-        totalTokenCount?: number;
-      };
+      usage?: GeminiUsage;
     }
   | {
       ok: false;
@@ -86,16 +88,16 @@ function extractText(payload: unknown): string {
     .trim();
 }
 
-function readUsage(payload: unknown): GeminiRouteResult extends { ok: true; usage?: infer U } ? U : never {
-  if (!payload || typeof payload !== 'object') return undefined as never;
+function readUsage(payload: unknown): GeminiUsage | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
   const usage = (payload as Record<string, unknown>).usageMetadata;
-  if (!usage || typeof usage !== 'object') return undefined as never;
+  if (!usage || typeof usage !== 'object') return undefined;
   const record = usage as Record<string, unknown>;
-  return {
-    ...(typeof record.promptTokenCount === 'number' ? { promptTokenCount: record.promptTokenCount } : {}),
-    ...(typeof record.candidatesTokenCount === 'number' ? { candidatesTokenCount: record.candidatesTokenCount } : {}),
-    ...(typeof record.totalTokenCount === 'number' ? { totalTokenCount: record.totalTokenCount } : {}),
-  } as never;
+  const result: GeminiUsage = {};
+  if (typeof record.promptTokenCount === 'number') result.promptTokenCount = record.promptTokenCount;
+  if (typeof record.candidatesTokenCount === 'number') result.candidatesTokenCount = record.candidatesTokenCount;
+  if (typeof record.totalTokenCount === 'number') result.totalTokenCount = record.totalTokenCount;
+  return Object.keys(result).length ? result : undefined;
 }
 
 async function callGeminiModel(input: {
@@ -111,7 +113,7 @@ async function callGeminiModel(input: {
   status: number;
   text: string;
   latencyMs: number;
-  usage?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+  usage?: GeminiUsage;
 }> {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent`;
   const attempt = deadlineSignal(input.timeoutMs, input.signal);
