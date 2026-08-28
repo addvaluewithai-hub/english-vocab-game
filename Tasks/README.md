@@ -86,12 +86,12 @@ This folder is the **source of truth for product development**. Every implementa
 | T030 | Import job architecture and ingestion pipeline framework | P1 | T016, T018, T021 | E | DONE |
 | T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | IN_PROGRESS |
 | T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | IN_PROGRESS |
-| T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | IN_PROGRESS |
+| T033 | YouTube import with timestamped spoken-context provenance | P1 | T030 | E | IN_PROGRESS |
 | T034 | Web article/URL import with clean-text extraction and provenance | P2 | T030 | E | READY |
 | T035 | Photo/image vocabulary import with OCR workflow and review staging | P2 | T030 | E | READY |
-| T036 | AI usefulness/level filtering, sense selection, and import approval ranking | P1 | T031, T032, T033 | E | BACKLOG |
+| T036 | AI usefulness/level filtering, sense selection, and import approval ranking | P1 | T031, T032, T033 | E | IN_PROGRESS |
 | T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | BACKLOG |
-| T038 | Import failures, limits, cost controls, observability, and retry UX | P1 | T030, T031, T032, T033 | E | BACKLOG |
+| T038 | Import failures, limits, cost controls, observability, and retry UX | P1 | T030, T031, T032, T033 | E | IN_PROGRESS |
 | T039 | Privacy-safe analytics and production error reporting | P1 | T010, T021 | F | READY |
 | T040 | Security/privacy controls, data export, account deletion, and retention policy | P0 | T018, T019 | F | READY |
 | T041 | Performance, offline, storage, memory, and battery hardening | P0 | T022, T036 | F | BACKLOG |
