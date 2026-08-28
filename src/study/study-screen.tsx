@@ -2,15 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import type { ReviewGrade } from '@/domain/types';
+import type { ReviewGrade, ReviewModeResult } from '@/domain/types';
 import { CatalogRepository } from '@/data/catalog';
 import { asSqlDatabase, type SqlDatabase } from '@/data/database';
-import { ReviewEventRepository, UserCardStateRepository } from '@/data/repositories';
 import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { ActionButton, EmptyState, ProgressBar, Surface } from '@/components/primitives';
+import { RecallModeCard } from '@/components/recall-mode-card';
 import { SwipeGradeCard } from '@/components/swipe-grade-card';
 import { colors, spacing, typography } from '@/theme/tokens';
-import { SimpleReviewScheduler } from './scheduler';
+import { LearningCardStateRepository, LearningReviewEventRepository } from './learning-repositories';
+import { gradeTypedAnswer, selectRecallMode } from './recall-modes';
+import { FsrsReviewScheduler } from './scheduler';
 import { ScopedStudyDataSource } from './scoped-source';
 import { StudySessionService, type StudySession, type StudySessionSnapshot } from './session';
 import { getActiveStudySession, setActiveStudySession } from './session-store';
@@ -18,9 +20,9 @@ import { getActiveStudySession, setActiveStudySession } from './session-store';
 function buildStudyService(db: SqlDatabase, languagePairId: string): StudySessionService {
   return new StudySessionService(
     new ScopedStudyDataSource(db, languagePairId),
-    new ReviewEventRepository(db),
-    new UserCardStateRepository(db),
-    new SimpleReviewScheduler(),
+    new LearningReviewEventRepository(db),
+    new LearningCardStateRepository(db),
+    new FsrsReviewScheduler(),
   );
 }
 
@@ -32,6 +34,7 @@ export function StudyScreen() {
   const [snapshot, setSnapshot] = useState<StudySessionSnapshot | null>(null);
   const [totalCards, setTotalCards] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [typedAnswer, setTypedAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cardStartedAt = useRef<number | null>(null);
@@ -56,6 +59,7 @@ export function StudyScreen() {
         setSession(next);
         setSnapshot(next.snapshot);
         setRevealed(false);
+        setTypedAnswer('');
         recallMs.current = null;
         cardStartedAt.current = Date.now();
         setError(null);
@@ -71,6 +75,7 @@ export function StudyScreen() {
     if (!pair) return;
     setError(null);
     setRevealed(false);
+    setTypedAnswer('');
     setSubmitting(false);
     recallMs.current = null;
     try {
@@ -85,14 +90,23 @@ export function StudyScreen() {
     }
   }
 
-  async function grade(gradeValue: ReviewGrade) {
-    if (!session || !snapshot?.current || !revealed || submitting) return;
+  function captureRecallTime() {
+    const now = Date.now();
+    recallMs.current = Math.max(0, now - (cardStartedAt.current ?? now));
+  }
+
+  async function grade(gradeValue: ReviewGrade, modeResult: ReviewModeResult = 'SELF_GRADED') {
+    const current = snapshot?.current;
+    if (!session || !current || submitting) return;
+    const mode = selectRecallMode(current.card);
+    if (mode !== 'TYPING' && !revealed) return;
     setSubmitting(true);
     try {
-      const accepted = await session.gradeCurrent(gradeValue, recallMs.current);
+      const accepted = await session.gradeCurrent(gradeValue, recallMs.current, new Date(), { recallMode: mode, modeResult });
       if (!accepted) return;
       setSnapshot(session.snapshot);
       setRevealed(false);
+      setTypedAnswer('');
       cardStartedAt.current = Date.now();
       recallMs.current = null;
     } catch (caught) {
@@ -100,6 +114,14 @@ export function StudyScreen() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function submitTyping() {
+    const current = snapshot?.current;
+    if (!current || submitting || !typedAnswer.trim()) return;
+    captureRecallTime();
+    const correct = gradeTypedAnswer(current.card, typedAnswer);
+    await grade(correct ? 'KNEW' : 'FORGOT', correct ? 'CORRECT' : 'INCORRECT');
   }
 
   if (pairLoading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="Preparing study" /></View>;
@@ -125,6 +147,7 @@ export function StudyScreen() {
   const current = snapshot.current;
   if (!current) return null;
   const progress = snapshot.reviewedCount / Math.max(snapshot.plannedTotal, 1);
+  const mode = selectRecallMode(current.card);
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.md }} style={{ flex: 1, backgroundColor: colors.canvas }}>
@@ -132,18 +155,18 @@ export function StudyScreen() {
         <View style={{ gap: spacing.sm }} accessibilityLiveRegion="polite">
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md }}>
             <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontVariant: ['tabular-nums'] }}>{snapshot.reviewedCount + 1} / {snapshot.plannedTotal}</Text>
-            <Text selectable style={{ color: current.isRetry ? colors.danger : colors.inkMuted, fontSize: typography.label, fontWeight: '800' }}>{current.isRetry ? 'RETRY' : pair.targetLanguageName.toUpperCase()}</Text>
+            <Text selectable style={{ color: current.isRetry ? colors.danger : colors.inkMuted, fontSize: typography.label, fontWeight: '800' }}>{current.isRetry ? 'RETRY' : mode.replaceAll('_', ' ')}</Text>
           </View>
           <ProgressBar value={progress} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', minHeight: 390 }}>
-          <SwipeGradeCard key={current.queueId} card={current.card} revealed={revealed} disabled={submitting} onReveal={() => { const now = Date.now(); recallMs.current = Math.max(0, now - (cardStartedAt.current ?? now)); setRevealed(true); }} onGrade={(value) => void grade(value)} />
+          {mode === 'TARGET_TO_MEANING' ? <SwipeGradeCard key={current.queueId} card={current.card} revealed={revealed} disabled={submitting} onReveal={() => { captureRecallTime(); setRevealed(true); }} onGrade={(value) => void grade(value)} /> : <RecallModeCard key={current.queueId} card={current.card} mode={mode} revealed={revealed} typedAnswer={typedAnswer} disabled={submitting} onTypedAnswer={setTypedAnswer} onReveal={() => { captureRecallTime(); setRevealed(true); }} onSubmitTyping={() => void submitTyping()} />}
         </View>
-        <View accessibilityRole="toolbar" style={{ flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.sm }}>
+        {mode !== 'TYPING' ? <View accessibilityRole="toolbar" style={{ flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.sm }}>
           <View style={{ flex: 1 }}><ActionButton accessibilityLabel="I forgot this word" label="← Forgot" tone="danger" disabled={!revealed || submitting} onPress={() => void grade('FORGOT')} /></View>
           <View style={{ flex: 1 }}><ActionButton accessibilityLabel="I knew this word" label="Knew it →" tone="success" disabled={!revealed || submitting} onPress={() => void grade('KNEW')} /></View>
-        </View>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, textAlign: 'center', paddingBottom: spacing.sm }}>{revealed ? 'Swipe or use the buttons to grade your recall.' : 'Think first. Tap the card to reveal.'}</Text>
+        </View> : null}
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, textAlign: 'center', paddingBottom: spacing.sm }}>{mode === 'TYPING' ? 'Typing is checked objectively. Small punctuation differences are ignored.' : revealed ? 'Use the buttons to grade your recall; target cards also support swipe.' : 'Think first, then reveal.'}</Text>
       </View>
     </ScrollView>
   );
