@@ -13,6 +13,10 @@ export const IMPORT_POLICY = {
     maxUrlCharacters: 2_048,
     maxCandidates: 32,
   },
+  photo: {
+    maxBytes: 10 * 1024 * 1024,
+    artifactRetentionHours: 24,
+  },
   retry: {
     maxAttempts: 3,
   },
@@ -29,7 +33,7 @@ export type ImportFailureCategory =
 
 export function classifyImportFailure(message: string): ImportFailureCategory {
   const normalized = message.toUpperCase();
-  if (normalized.includes('LIMIT') || normalized.includes('TOO LARGE') || normalized.includes('25 MB')) return 'LIMIT_EXCEEDED';
+  if (normalized.includes('LIMIT') || normalized.includes('TOO LARGE') || normalized.includes('25 MB') || normalized.includes('10 MB')) return 'LIMIT_EXCEEDED';
   if (normalized.includes('UNSUPPORTED') || normalized.includes('SCANNED') || normalized.includes('PRIVATE') || normalized.includes('UNLISTED')) return 'UNSUPPORTED_SOURCE';
   if (normalized.includes('UNAVAILABLE') || normalized.includes('429') || normalized.includes('503') || normalized.includes('TIMEOUT')) return 'PROVIDER_UNAVAILABLE';
   if (normalized.includes('EXTRACT') || normalized.includes('UNREADABLE') || normalized.includes('NO_CANDIDATES')) return 'EXTRACTION_FAILED';
