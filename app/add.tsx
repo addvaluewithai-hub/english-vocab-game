@@ -1,5 +1,5 @@
-import { ScreenPlaceholder } from '@/components/screen-placeholder';
+import { VocabularyFormScreen } from '@/features/bank/vocabulary-form-screen';
 
 export default function AddRoute() {
-  return <ScreenPlaceholder title="Add Vocabulary" body="Manual term, sense and context editing is planned immediately after the first study-loop milestone." />;
+  return <VocabularyFormScreen />;
 }
