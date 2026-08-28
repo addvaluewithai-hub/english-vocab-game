@@ -5,6 +5,11 @@ export const GEMINI_TEXT_MODEL_CHAIN = [
   'gemini-3.5-flash-lite',
 ] as const;
 
+export const GEMINI_VIDEO_MODEL_CHAIN = [
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+] as const;
+
 const RETRYABLE_STATUSES = new Set([404, 408, 409, 429, 500, 502, 503, 504]);
 const DEADLINE_RESERVE_MS = 300;
 const MIN_ATTEMPT_MS = 250;
@@ -39,6 +44,20 @@ export type GeminiRouteResult =
       task: string;
       attempts: GeminiAttempt[];
       status?: number;
+    };
+
+export type GeminiPart =
+  | { text: string }
+  | {
+      file_data: {
+        file_uri: string;
+        mime_type?: string;
+      };
+      video_metadata?: {
+        start_offset?: string;
+        end_offset?: string;
+        fps?: number;
+      };
     };
 
 export function computeGeminiAttemptTimeout(input: {
@@ -104,7 +123,7 @@ async function callGeminiModel(input: {
   apiKey: string;
   model: string;
   system: string;
-  prompt: string;
+  parts: GeminiPart[];
   maxOutputTokens: number;
   timeoutMs: number;
   signal: AbortSignal;
@@ -128,11 +147,10 @@ async function callGeminiModel(input: {
       },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: input.system }] },
-        contents: [{ role: 'user', parts: [{ text: input.prompt }] }],
+        contents: [{ role: 'user', parts: input.parts }],
         generationConfig: {
           maxOutputTokens: input.maxOutputTokens,
           temperature: 0.2,
-          responseMimeType: 'application/json',
         },
       }),
     });
@@ -151,10 +169,10 @@ async function callGeminiModel(input: {
   }
 }
 
-export async function routeGeminiText(input: {
+export async function routeGeminiContent(input: {
   apiKey: string | undefined;
   system: string;
-  prompt: string;
+  parts: GeminiPart[];
   task: string;
   maxOutputTokens?: number;
   attemptTimeoutMs?: number;
@@ -189,7 +207,7 @@ export async function routeGeminiText(input: {
           apiKey,
           model,
           system: input.system,
-          prompt: input.prompt,
+          parts: input.parts,
           maxOutputTokens: input.maxOutputTokens ?? 1_800,
           timeoutMs,
           signal: overall.signal,
@@ -230,4 +248,26 @@ export async function routeGeminiText(input: {
   }
 
   return { ok: false, error: 'all-models-unavailable', task: input.task, attempts };
+}
+
+export async function routeGeminiText(input: {
+  apiKey: string | undefined;
+  system: string;
+  prompt: string;
+  task: string;
+  maxOutputTokens?: number;
+  attemptTimeoutMs?: number;
+  overallTimeoutMs?: number;
+  models?: readonly string[];
+}): Promise<GeminiRouteResult> {
+  return routeGeminiContent({
+    apiKey: input.apiKey,
+    system: input.system,
+    parts: [{ text: input.prompt }],
+    task: input.task,
+    ...(input.maxOutputTokens === undefined ? {} : { maxOutputTokens: input.maxOutputTokens }),
+    ...(input.attemptTimeoutMs === undefined ? {} : { attemptTimeoutMs: input.attemptTimeoutMs }),
+    ...(input.overallTimeoutMs === undefined ? {} : { overallTimeoutMs: input.overallTimeoutMs }),
+    ...(input.models === undefined ? {} : { models: input.models }),
+  });
 }
