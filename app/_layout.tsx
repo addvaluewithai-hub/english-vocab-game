@@ -3,12 +3,14 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initializeDatabase } from '@/data/initialize';
+import { SyncCoordinator } from '@/sync/coordinator';
 import { colors } from '@/theme/tokens';
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SQLiteProvider databaseName="vocab-flow.db" onInit={initializeDatabase}>
+        <SyncCoordinator />
         <StatusBar style="dark" />
         <Stack
           screenOptions={{
