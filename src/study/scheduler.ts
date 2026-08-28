@@ -1,4 +1,5 @@
-import { createEmptyCard, fsrs, Rating, State } from 'ts-fsrs';
+import { createEmptyCard, fsrs, State } from 'ts-fsrs';
+import type { Grade } from 'ts-fsrs';
 import type { ISODateString, ReviewEvent, ReviewGrade, StudyLifecycle, UserCardState } from '@/domain/types';
 
 export interface ScheduleDecision {
@@ -67,8 +68,8 @@ function lifecycleFor(state: State): StudyLifecycle {
   return 'LEARNING';
 }
 
-function ratingFor(grade: ReviewGrade): Rating {
-  return grade === 'KNEW' ? Rating.Good : Rating.Again;
+function gradeFor(grade: ReviewGrade): Grade {
+  return grade === 'KNEW' ? 3 : 1;
 }
 
 export class FsrsReviewScheduler implements ReviewScheduler {
@@ -85,7 +86,7 @@ export class FsrsReviewScheduler implements ReviewScheduler {
     let card = createEmptyCard(new Date(replay[0]?.reviewedAt ?? reviewedAt));
 
     for (const event of replay) {
-      card = fsrsScheduler.next(card, new Date(event.reviewedAt), ratingFor(event.grade)).card;
+      card = fsrsScheduler.next(card, new Date(event.reviewedAt), gradeFor(event.grade)).card;
     }
 
     return {
