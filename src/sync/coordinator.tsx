@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { useSQLiteContext } from 'expo-sqlite';
 import { isNeonCloudConfigured } from '@/cloud/neon-client';
 import { asSqlDatabase } from '@/data/database';
@@ -7,25 +8,34 @@ import { PreferencesRepository } from '@/data/preferences';
 import { OfflineSyncEngine, getOrCreateSyncClientId } from './engine';
 import { NeonDataApiSyncTransport } from './neon-transport';
 import { syncStatusStore } from './status';
+import type { SyncRunSummary } from './types';
 
 const FOREGROUND_SYNC_INTERVAL_MS = 60_000;
+
+export async function syncCloudNow(
+  sqlite: SQLiteDatabase,
+  ownerKey?: string,
+): Promise<SyncRunSummary | null> {
+  if (!isNeonCloudConfigured()) return null;
+  const activeOwner = ownerKey
+    ?? (await new PreferencesRepository(asSqlDatabase(sqlite)).load()).activeOwnerKey;
+  if (activeOwner === 'guest') {
+    syncStatusStore.update({ phase: 'IDLE', pendingCount: 0, blockedCount: 0, lastError: null });
+    return null;
+  }
+  const clientId = await getOrCreateSyncClientId(sqlite);
+  return new OfflineSyncEngine(sqlite, new NeonDataApiSyncTransport()).run(activeOwner, clientId);
+}
 
 export function SyncCoordinator() {
   const sqlite = useSQLiteContext();
 
   useEffect(() => {
     let disposed = false;
-    const engine = new OfflineSyncEngine(sqlite, new NeonDataApiSyncTransport());
 
     async function syncNow(): Promise<void> {
-      if (disposed || !isNeonCloudConfigured()) return;
-      const preferences = await new PreferencesRepository(asSqlDatabase(sqlite)).load();
-      if (preferences.activeOwnerKey === 'guest') {
-        syncStatusStore.update({ phase: 'IDLE', pendingCount: 0, blockedCount: 0, lastError: null });
-        return;
-      }
-      const clientId = await getOrCreateSyncClientId(sqlite);
-      await engine.run(preferences.activeOwnerKey, clientId);
+      if (disposed) return;
+      await syncCloudNow(sqlite);
     }
 
     void syncNow().catch((caught: unknown) => {
