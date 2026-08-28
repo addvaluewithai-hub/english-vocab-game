@@ -24,7 +24,7 @@ export function PdfImportScreen() {
   async function choosePdf(): Promise<void> {
     if (!pair) return;
     if (ownerKey === 'guest') {
-      setMessage('Sign in before importing PDFs so the secure upload and background job can be tied to your account.');
+      setMessage('Sign in before importing PDFs so the secure upload and server-side analysis can be tied to your account.');
       return;
     }
     setBusy(true);
@@ -84,12 +84,12 @@ export function PdfImportScreen() {
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ gap: spacing.xs }}>
         <Text accessibilityRole="header" style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Import a PDF</Text>
-        <Text style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Choose a text PDF up to 25 MB. The file uploads directly to temporary private storage, then vocabulary is extracted in the background with page provenance.</Text>
+        <Text style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Choose a text PDF up to 25 MB. The file uploads directly to temporary private Neon storage, then the server analyzes its short-lived URL and proposes vocabulary with page provenance.</Text>
       </View>
       <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
         <Text style={{ color: colors.ink, fontWeight: '700' }}>Text PDFs first</Text>
-        <Text style={{ color: colors.inkMuted, lineHeight: 22 }}>Scanned or encrypted PDFs are reported explicitly instead of silently producing weak vocabulary. Photos and OCR use a separate import path.</Text>
-        <ActionButton label={busy ? 'Starting import…' : 'Choose PDF'} disabled={busy || !pair} onPress={() => void choosePdf()} />
+        <Text style={{ color: colors.inkMuted, lineHeight: 22 }}>Scanned or encrypted PDFs are reported explicitly instead of silently producing weak vocabulary. The original upload is temporary and nothing enters your bank until you approve it.</Text>
+        <ActionButton label={busy ? 'Analyzing PDF…' : 'Choose PDF'} disabled={busy || !pair} onPress={() => void choosePdf()} />
       </Surface>
       {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" style={{ color: colors.inkMuted, lineHeight: 22 }}>{message}</Text></Surface> : null}
     </ScrollView>
