@@ -5,10 +5,13 @@ export const GEMINI_TEXT_MODEL_CHAIN = [
   'gemini-3.5-flash-lite',
 ] as const;
 
-export const GEMINI_VIDEO_MODEL_CHAIN = [
+export const GEMINI_MULTIMODAL_MODEL_CHAIN = [
   'gemini-3.1-flash-lite',
   'gemini-3.5-flash-lite',
 ] as const;
+
+export const GEMINI_VIDEO_MODEL_CHAIN = GEMINI_MULTIMODAL_MODEL_CHAIN;
+export const GEMINI_URL_MODEL_CHAIN = GEMINI_MULTIMODAL_MODEL_CHAIN;
 
 const RETRYABLE_STATUSES = new Set([404, 408, 409, 429, 500, 502, 503, 504]);
 const DEADLINE_RESERVE_MS = 300;
@@ -59,6 +62,8 @@ export type GeminiPart =
         fps?: number;
       };
     };
+
+export type GeminiTool = { url_context: Record<string, never> };
 
 export function computeGeminiAttemptTimeout(input: {
   attemptTimeoutMs: number;
@@ -124,6 +129,7 @@ async function callGeminiModel(input: {
   model: string;
   system: string;
   parts: GeminiPart[];
+  tools?: GeminiTool[];
   maxOutputTokens: number;
   timeoutMs: number;
   signal: AbortSignal;
@@ -148,6 +154,7 @@ async function callGeminiModel(input: {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: input.system }] },
         contents: [{ role: 'user', parts: input.parts }],
+        ...(input.tools?.length ? { tools: input.tools } : {}),
         generationConfig: {
           maxOutputTokens: input.maxOutputTokens,
           temperature: 0.2,
@@ -173,6 +180,7 @@ export async function routeGeminiContent(input: {
   apiKey: string | undefined;
   system: string;
   parts: GeminiPart[];
+  tools?: GeminiTool[];
   task: string;
   maxOutputTokens?: number;
   attemptTimeoutMs?: number;
@@ -208,6 +216,7 @@ export async function routeGeminiContent(input: {
           model,
           system: input.system,
           parts: input.parts,
+          ...(input.tools?.length ? { tools: input.tools } : {}),
           maxOutputTokens: input.maxOutputTokens ?? 1_800,
           timeoutMs,
           signal: overall.signal,
