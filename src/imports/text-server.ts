@@ -5,6 +5,7 @@ import {
   parseExplicitVocabularyList,
   validatePastedText,
 } from './text-parser';
+import { routeGeminiText, type GeminiAttempt } from '@/server/gemini-router';
 
 type AiCandidateRow = {
   term: string;
@@ -17,120 +18,134 @@ type AiCandidateRow = {
   isVisuallyConcrete: boolean | null;
 };
 
-const candidateSchema = {
-  type: 'object',
-  properties: {
-    candidates: {
-      type: 'array',
-      maxItems: MAX_TEXT_CANDIDATES,
-      items: {
-        type: 'object',
-        properties: {
-          term: { type: 'string' },
-          translation: { type: 'string' },
-          definition: { type: ['string', 'null'] },
-          partOfSpeech: { type: ['string', 'null'] },
-          context: { type: ['string', 'null'] },
-          confidence: { type: 'number', minimum: 0, maximum: 1 },
-          usefulness: { type: 'number', minimum: 0, maximum: 1 },
-          isVisuallyConcrete: { type: ['boolean', 'null'] },
-        },
-        required: [
-          'term',
-          'translation',
-          'definition',
-          'partOfSpeech',
-          'context',
-          'confidence',
-          'usefulness',
-          'isVisuallyConcrete',
-        ],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['candidates'],
-  additionalProperties: false,
-} as const;
+export interface TextImportExtraction {
+  candidates: NormalizedImportCandidate[];
+  provider: 'LOCAL_LIST' | 'GEMINI_ROUTER';
+  model: string | null;
+  fallbackCount: number;
+  attempts: GeminiAttempt[];
+  usage?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+}
 
-function outputText(body: unknown): string | null {
-  if (!body || typeof body !== 'object') return null;
-  const record = body as Record<string, unknown>;
-  if (typeof record.output_text === 'string') return record.output_text;
-  if (!Array.isArray(record.output)) return null;
-  for (const item of record.output) {
-    if (!item || typeof item !== 'object') continue;
-    const content = (item as Record<string, unknown>).content;
-    if (!Array.isArray(content)) continue;
-    for (const part of content) {
-      if (!part || typeof part !== 'object') continue;
-      const piece = part as Record<string, unknown>;
-      if (piece.type === 'output_text' && typeof piece.text === 'string') return piece.text;
-    }
-  }
-  return null;
+function jsonPayload(text: string): unknown {
+  const trimmed = text.trim();
+  const unfenced = trimmed.startsWith('```')
+    ? trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    : trimmed;
+  return JSON.parse(unfenced);
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : value === null ? null : null;
+}
+
+function score(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : null;
 }
 
 function parseRows(text: string): AiCandidateRow[] {
-  const parsed: unknown = JSON.parse(text);
+  const parsed = jsonPayload(text);
   if (!parsed || typeof parsed !== 'object') throw new Error('AI enrichment returned an invalid payload.');
   const candidates = (parsed as Record<string, unknown>).candidates;
   if (!Array.isArray(candidates)) throw new Error('AI enrichment returned no candidate list.');
-  return candidates as AiCandidateRow[];
+
+  const rows: AiCandidateRow[] = [];
+  for (const item of candidates) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.term !== 'string' || typeof row.translation !== 'string') continue;
+    const confidence = score(row.confidence);
+    const usefulness = score(row.usefulness);
+    if (confidence === null || usefulness === null) continue;
+    rows.push({
+      term: row.term,
+      translation: row.translation,
+      definition: nullableString(row.definition),
+      partOfSpeech: nullableString(row.partOfSpeech),
+      context: nullableString(row.context),
+      confidence,
+      usefulness,
+      isVisuallyConcrete: typeof row.isVisuallyConcrete === 'boolean' ? row.isVisuallyConcrete : null,
+    });
+    if (rows.length >= MAX_TEXT_CANDIDATES) break;
+  }
+  return rows;
 }
 
-async function extractProseWithOpenAI(input: {
+async function extractProseWithGemini(input: {
   text: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
-}): Promise<NormalizedImportCandidate[]> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) throw new Error('AI-assisted prose import is not configured for this environment.');
+}): Promise<TextImportExtraction> {
+  const system = [
+    'You curate a compact vocabulary study set from user-provided source text.',
+    'Return JSON only. Never wrap it in Markdown.',
+    `Vocabulary is in ${input.targetLanguageCode}; translate or explain it in ${input.referenceLanguageCode}.`,
+    `Return at most ${MAX_TEXT_CANDIDATES} useful words or multi-word phrases, not every token.`,
+    'Prefer vocabulary that is meaningful in this exact context; preserve phrases and phrasal verbs.',
+    'Use the sense that appears in the source. Context must be a short exact or minimally trimmed sentence from the source when available.',
+    'Do not invent source context. If uncertain, lower confidence rather than pretending certainty.',
+    'Exclude obvious function words, names that are not useful vocabulary, and trivial duplicates.',
+    'Scores confidence and usefulness must be numbers from 0 to 1.',
+    'isVisuallyConcrete is true only for a clearly visual/concrete sense, false for clearly non-visual, otherwise null.',
+  ].join('\n');
+  const prompt = [
+    'Return exactly this JSON shape:',
+    '{"candidates":[{"term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"confidence":0.9,"usefulness":0.9,"isVisuallyConcrete":null}]}',
+    '',
+    'SOURCE TEXT:',
+    input.text,
+  ].join('\n');
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_IMPORT_MODEL?.trim() || 'gpt-5.6-luna',
-      store: false,
-      reasoning: { effort: 'low' },
-      instructions: [
-        'Extract a small, high-value vocabulary study set from the user-provided source text.',
-        `The source/target vocabulary language is ${input.targetLanguageCode}; translate or explain it in ${input.referenceLanguageCode}.`,
-        `Return at most ${MAX_TEXT_CANDIDATES} useful words or multi-word phrases, not every token.`,
-        'Prefer vocabulary that is meaningful in this exact context; preserve phrases and phrasal verbs.',
-        'Use the sense that appears in the source. Context must be a short exact or minimally trimmed sentence from the source when available.',
-        'Do not invent source context. If uncertain, lower confidence rather than pretending certainty.',
-        'Exclude obvious function words, names that are not useful vocabulary, and trivial duplicates.',
-      ].join('\n'),
-      input: input.text,
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'vocabulary_candidates',
-          strict: true,
-          schema: candidateSchema,
-        },
-      },
-    }),
+  const routed = await routeGeminiText({
+    apiKey: process.env.GEMINI_API_KEY,
+    system,
+    prompt,
+    task: 'vocabulary_text_import',
+    maxOutputTokens: 2_200,
+    attemptTimeoutMs: 5_000,
+    overallTimeoutMs: 16_000,
   });
 
-  const body: unknown = await response.json();
-  if (!response.ok) {
-    const message = body && typeof body === 'object' && typeof (body as Record<string, unknown>).error === 'object'
-      ? String(((body as Record<string, unknown>).error as Record<string, unknown>).message ?? 'AI enrichment failed.')
-      : `AI enrichment failed (${response.status}).`;
-    throw new Error(message);
+  if (!routed.ok) {
+    if (routed.error === 'missing-api-key') throw new Error('AI-assisted prose import is not configured for this environment.');
+    if (routed.error === 'provider-rejected-request') throw new Error(`AI enrichment request was rejected (${routed.status ?? 'unknown'}).`);
+    throw new Error('All configured Gemini/Gemma import models are temporarily unavailable.');
   }
-  const text = outputText(body);
-  if (!text) throw new Error('AI enrichment returned no usable output.');
-  const rows = parseRows(text);
-  const normalized = normalizeAiTextCandidates(rows);
+
+  const normalized = normalizeAiTextCandidates(parseRows(routed.text));
   if (normalized.length === 0) throw new Error('No useful vocabulary candidates were found in this text.');
-  return normalized;
+  return {
+    candidates: normalized,
+    provider: 'GEMINI_ROUTER',
+    model: routed.model,
+    fallbackCount: routed.fallbackCount,
+    attempts: routed.attempts,
+    ...(routed.usage ? { usage: routed.usage } : {}),
+  };
+}
+
+export async function extractTextImport(input: {
+  text: string;
+  targetLanguageCode: string;
+  referenceLanguageCode: string;
+}): Promise<TextImportExtraction> {
+  const text = validatePastedText(input.text);
+  const listCandidates = parseExplicitVocabularyList(text);
+  if (listCandidates.length > 0) {
+    return {
+      candidates: listCandidates,
+      provider: 'LOCAL_LIST',
+      model: null,
+      fallbackCount: 0,
+      attempts: [],
+    };
+  }
+  return extractProseWithGemini({ ...input, text });
 }
 
 export async function extractTextImportCandidates(input: {
@@ -138,8 +153,5 @@ export async function extractTextImportCandidates(input: {
   targetLanguageCode: string;
   referenceLanguageCode: string;
 }): Promise<NormalizedImportCandidate[]> {
-  const text = validatePastedText(input.text);
-  const listCandidates = parseExplicitVocabularyList(text);
-  if (listCandidates.length > 0) return listCandidates;
-  return extractProseWithOpenAI({ ...input, text });
+  return (await extractTextImport(input)).candidates;
 }
