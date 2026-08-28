@@ -4,7 +4,7 @@ import { Link } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import type { ReviewGrade } from '@/domain/types';
 import { CatalogRepository } from '@/data/catalog';
-import { asSqlDatabase } from '@/data/database';
+import { asSqlDatabase, type SqlDatabase } from '@/data/database';
 import { ReviewEventRepository, UserCardStateRepository } from '@/data/repositories';
 import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { ActionButton, EmptyState, ProgressBar, Surface } from '@/components/primitives';
@@ -14,6 +14,15 @@ import { SimpleReviewScheduler } from './scheduler';
 import { ScopedStudyDataSource } from './scoped-source';
 import { StudySessionService, type StudySession, type StudySessionSnapshot } from './session';
 import { getActiveStudySession, setActiveStudySession } from './session-store';
+
+function buildStudyService(db: SqlDatabase, languagePairId: string): StudySessionService {
+  return new StudySessionService(
+    new ScopedStudyDataSource(db, languagePairId),
+    new ReviewEventRepository(db),
+    new UserCardStateRepository(db),
+    new SimpleReviewScheduler(),
+  );
+}
 
 export function StudyScreen() {
   const sqlite = useSQLiteContext();
@@ -28,15 +37,6 @@ export function StudyScreen() {
   const cardStartedAt = useRef<number | null>(null);
   const recallMs = useRef<number | null>(null);
 
-  function makeService(languagePairId: string) {
-    return new StudySessionService(
-      new ScopedStudyDataSource(db, languagePairId),
-      new ReviewEventRepository(db),
-      new UserCardStateRepository(db),
-      new SimpleReviewScheduler(),
-    );
-  }
-
   useEffect(() => {
     let cancelled = false;
     async function initialize() {
@@ -49,7 +49,7 @@ export function StudyScreen() {
       try {
         const count = (await new CatalogRepository(db).listBank(pair.id)).length;
         const existing = getActiveStudySession(pair.id);
-        const next = existing ?? (await makeService(pair.id).createSession());
+        const next = existing ?? (await buildStudyService(db, pair.id).createSession());
         if (cancelled) return;
         setActiveStudySession(next, pair.id);
         setTotalCards(count);
@@ -74,7 +74,7 @@ export function StudyScreen() {
     setSubmitting(false);
     recallMs.current = null;
     try {
-      const next = await makeService(pair.id).createSession();
+      const next = await buildStudyService(db, pair.id).createSession();
       setActiveStudySession(next, pair.id);
       setSession(next);
       setSnapshot(next.snapshot);
