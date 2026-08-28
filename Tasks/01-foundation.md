@@ -14,7 +14,7 @@ Goal: establish the product contract, Expo shell, UI primitives, and local data 
 - Write the concise product contract: target user, core job-to-be-done, core loop, success signal, and MVP non-goals.
 - Define the domain vocabulary: Term/Phrase, Sense, Card, Review Event, User Card State, Collection, Source, Source Occurrence, Study Session.
 - Lock the principle that a term can have multiple senses and that a phrase can be a learning unit.
-- Record architecture decisions for Expo/React Native/TypeScript, Expo Router, local-first SQLite, Supabase cloud, and scheduler abstraction.
+- Record architecture decisions for Expo/React Native/TypeScript, Expo Router, local-first SQLite, Neon Postgres cloud, and scheduler abstraction.
 - Define lifecycle meanings for `NEW`, `LEARNING`, `REVIEW`, and `MASTERED` (internal state can evolve later).
 - Define what data is append-only (review events) and what may be edited.
 
