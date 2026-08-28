@@ -33,7 +33,7 @@ const sourcePdf: Source = {
 
 type SeedEntry = {
   term: Term;
-  senses: Array<{ sense: Sense; card: Card; occurrence: SourceOccurrence }>;
+  senses: { sense: Sense; card: Card; occurrence: SourceOccurrence }[];
 };
 
 function baseTerm(id: string, text: string, kind: Term['kind'], createdAt: string): Term {
