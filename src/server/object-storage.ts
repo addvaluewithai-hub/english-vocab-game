@@ -1,9 +1,10 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { IMPORT_POLICY } from '@/imports/policy';
 
 export const IMPORT_BUCKET = 'vocab-imports';
-export const PDF_UPLOAD_LIMIT_BYTES = 25 * 1024 * 1024;
-export const PHOTO_UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024;
+export const PDF_UPLOAD_LIMIT_BYTES = IMPORT_POLICY.pdf.maxBytes;
+export const PHOTO_UPLOAD_LIMIT_BYTES = IMPORT_POLICY.photo.maxBytes;
 const UPLOAD_URL_TTL_SECONDS = 5 * 60;
 const READ_URL_TTL_SECONDS = 15 * 60;
 
