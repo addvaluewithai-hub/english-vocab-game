@@ -1,4 +1,5 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { isLearnerLevel, type LearnerLevel } from './ranking';
 import { normalizeYouTubeUrl } from './youtube';
 import {
   GEMINI_VIDEO_MODEL_CHAIN,
@@ -19,6 +20,7 @@ interface YouTubeCandidateRow {
   timestampSeconds: number | null;
   confidence: number;
   usefulness: number;
+  cefrLevel: LearnerLevel | null;
   isVisuallyConcrete: boolean | null;
 }
 
@@ -72,6 +74,7 @@ function rowsFromModel(text: string): YouTubeCandidateRow[] {
       timestampSeconds: rawTimestamp,
       confidence,
       usefulness,
+      cefrLevel: isLearnerLevel(row.cefrLevel) ? row.cefrLevel : null,
       isVisuallyConcrete: typeof row.isVisuallyConcrete === 'boolean' ? row.isVisuallyConcrete : null,
     });
     if (rows.length >= MAX_YOUTUBE_CANDIDATES) break;
@@ -106,6 +109,7 @@ function normalizeRows(rows: YouTubeCandidateRow[], canonicalUrl: string): Norma
       },
       confidence: row.confidence,
       usefulness: row.usefulness,
+      cefrLevel: row.cefrLevel,
       duplicateHint: null,
       isVisuallyConcrete: row.isVisuallyConcrete,
     });
@@ -118,18 +122,21 @@ export async function extractYouTubeVocabulary(input: {
   url: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
+  learnerLevel: LearnerLevel;
 }): Promise<YouTubeExtraction> {
   const source = normalizeYouTubeUrl(input.url);
   const prompt = [
     'Extract a compact vocabulary-learning set from this public YouTube video.',
     `Vocabulary is in ${input.targetLanguageCode}; meanings or translations must be in ${input.referenceLanguageCode}.`,
+    `The learner is approximately CEFR ${input.learnerLevel}. Prefer useful items around that level and up to one level above while preserving important phrases used in context.`,
     `Return at most ${MAX_YOUTUBE_CANDIDATES} high-value words or multi-word phrases, not every word.`,
     'Prefer vocabulary that is actually spoken or clearly used in the video context. Preserve phrases and phrasal verbs.',
     'Use the sense present at the cited moment. Context should be a short faithful spoken sentence or minimally normalized excerpt when confidently heard; otherwise null.',
     'timestampSeconds must be the approximate 0-based second where the representative occurrence begins; use null only when a reliable timestamp cannot be determined.',
+    'cefrLevel must be A1, A2, B1, B2, C1, C2, or null when uncertain.',
     'Do not invent quotations, timestamps, definitions, or translations. Lower confidence if uncertain.',
     'Return JSON only, no Markdown. Shape:',
-    '{"candidates":[{"candidateKey":"...","term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"timestampSeconds":12,"confidence":0.9,"usefulness":0.9,"isVisuallyConcrete":null}]}',
+    '{"candidates":[{"candidateKey":"...","term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"timestampSeconds":12,"confidence":0.9,"usefulness":0.9,"cefrLevel":"B1","isVisuallyConcrete":null}]}',
   ].join('\n');
 
   const result = await routeGeminiContent({
