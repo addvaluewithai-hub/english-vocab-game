@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ReviewEvent, StudyCard } from '@/domain/types';
 import { recommendEnrichment } from '@/enrichment/rules';
 import { importIdempotencyKey } from '@/imports/jobs';
-import { isValidReminderTime, nextReminderDate } from '@/notifications/review-reminders';
+import { isValidReminderTime, nextReminderDate } from '@/notifications/reminder-time';
 import { buildLearningInsight, retentionRate } from '@/stats/metrics';
 import { availableRecallModes, clozeSentence, gradeTypedAnswer } from '@/study/recall-modes';
 import { FsrsReviewScheduler } from '@/study/scheduler';
