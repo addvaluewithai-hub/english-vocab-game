@@ -1,3 +1,5 @@
+import { IMPORT_POLICY } from './policy';
+
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{6,20}$/;
 
 export interface NormalizedYouTubeSource {
@@ -21,6 +23,7 @@ function videoIdFromUrl(url: URL): string | null {
 export function normalizeYouTubeUrl(value: string): NormalizedYouTubeSource {
   const raw = value.trim();
   if (!raw) throw new Error('Paste a YouTube URL first.');
+  if (raw.length > IMPORT_POLICY.youtube.maxUrlCharacters) throw new Error('YouTube URL exceeds the supported length limit.');
   let url: URL;
   try {
     url = new URL(raw);
