@@ -119,14 +119,16 @@ export async function markServerJobProcessing(input: {
   providerKind: string;
   providerJobId?: string | null;
   metrics?: Record<string, unknown>;
-}): Promise<void> {
+}): Promise<boolean> {
   const sql = serverSql();
-  await sql`
+  const rows = await sql`
     UPDATE import_jobs SET status='PROCESSING', provider_kind=${input.providerKind},
       provider_job_id=${input.providerJobId ?? null}, metrics=${JSON.stringify(input.metrics ?? {})}::jsonb,
       error_code=NULL,error_message=NULL,updated_at=${new Date().toISOString()}
     WHERE owner_id=${input.ownerId} AND id=${input.id} AND status='QUEUED'
-  `;
+    RETURNING id
+  ` as unknown as Array<{ id: string }>;
+  return rows.length > 0;
 }
 
 export async function markServerJobFailed(input: {
