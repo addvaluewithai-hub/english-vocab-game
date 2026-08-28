@@ -3,6 +3,7 @@ import { asSqlDatabase } from '@/data/database';
 import { PreferencesRepository } from '@/data/preferences';
 import { createId } from '@/utils/id';
 import { ImportStagingService, type ProposedVocabulary } from './staging';
+import { canRetryImport, classifyImportFailure } from './policy';
 import { DEFAULT_LEARNER_LEVEL, isLearnerLevel } from './ranking';
 import type {
   ImportJob,
@@ -179,6 +180,7 @@ export class ImportJobRepository {
     const job = await this.get(id);
     if (!job) throw new Error('Import job not found.');
     if (job.status !== 'FAILED' && job.status !== 'CANCELLED') return job;
+    if (!canRetryImport(job.retryCount)) throw new Error('This import reached its retry limit. Start a new import only if the source has changed.');
     await this.sqlite.runAsync(
       `UPDATE import_jobs SET status='QUEUED',error_code=NULL,error_message=NULL,retry_count=retry_count+1,updated_at=? WHERE id=?`,
       now.toISOString(),
@@ -276,7 +278,7 @@ export class ImportJobService {
       return (await this.repository.get(job.id))!;
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Import service is unavailable.';
-      await this.repository.markFailed(job.id, 'NETWORK_OR_SERVER', message);
+      await this.repository.markFailed(job.id, classifyImportFailure(message), message);
       throw caught;
     }
   }
@@ -289,5 +291,23 @@ export class ImportJobService {
     const updated = await this.repository.applyRemoteSnapshot(job.id, snapshot);
     if (updated.status === 'NEEDS_REVIEW' && updated.candidates?.length) await this.repository.sendToStaging(updated.id);
     return (await this.repository.get(job.id))!;
+  }
+
+  async retry(jobId: string): Promise<ImportJob> {
+    const current = await this.repository.get(jobId);
+    if (!current) throw new Error('Import job not found.');
+    if (!canRetryImport(current.retryCount)) throw new Error('This import reached its retry limit.');
+    if (current.serverJobId) {
+      const snapshot = await this.transport.retry(current.serverJobId);
+      await this.repository.applyRemoteSnapshot(jobId, snapshot);
+    }
+    return this.repository.prepareRetry(jobId);
+  }
+
+  async cancel(jobId: string): Promise<void> {
+    const current = await this.repository.get(jobId);
+    if (!current) return;
+    if (current.serverJobId) await this.transport.cancel(current.serverJobId);
+    await this.repository.cancel(jobId);
   }
 }
