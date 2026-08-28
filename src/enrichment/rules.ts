@@ -1,7 +1,16 @@
-import type { StudyCard } from '@/domain/types';
+import type { TermKind } from '@/domain/types';
 
 export type EnrichmentKind = 'IMAGE' | 'AUDIO' | 'CONTEXT' | 'EXPLANATION' | 'EXAMPLE';
 export type EnrichmentProvenance = 'USER' | 'RULE_ENGINE' | 'IMPORTED' | 'GENERATED';
+
+export interface EnrichmentSubject {
+  termKind: TermKind;
+  partOfSpeech: string | null;
+  definition: string | null;
+  contextSentence: string | null;
+  imageUri: string | null;
+  audioUri: string | null;
+}
 
 export interface EnrichmentRecommendation {
   kind: EnrichmentKind;
@@ -22,7 +31,7 @@ function add(
   list.push({ kind, priority, reason, provenance: 'RULE_ENGINE' });
 }
 
-export function recommendEnrichment(card: StudyCard): EnrichmentRecommendation[] {
+export function recommendEnrichment(card: EnrichmentSubject): EnrichmentRecommendation[] {
   const list: EnrichmentRecommendation[] = [];
   const partOfSpeech = card.partOfSpeech?.trim().toLowerCase() ?? '';
   const hasContext = Boolean(card.contextSentence?.trim());
