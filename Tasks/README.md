@@ -54,30 +54,30 @@ This folder is the **source of truth for product development**. Every implementa
 
 | ID | Task | Priority | Depends on | Gate | Status |
 |---|---|---:|---|---|---|
-| T001 | Product contract, domain glossary, and architecture decisions | P0 | — | A | IN_PROGRESS |
-| T002 | Expo TypeScript scaffold and navigation shell | P0 | T001 | A | IN_PROGRESS |
-| T003 | Design system and reusable interaction primitives | P0 | T002 | A | IN_PROGRESS |
-| T004 | Local domain model, SQLite schema, migrations, and repository layer | P0 | T001, T002 | B | IN_PROGRESS |
-| T005 | Deterministic demo/seed data and developer utilities | P1 | T004 | A/B | IN_PROGRESS |
-| T006 | Study queue and session state service | P0 | T004, T005 | B | IN_PROGRESS |
-| T007 | Vocabulary card front/back and flip interaction | P0 | T003, T006 | A | IN_PROGRESS |
-| T008 | Swipe grading, buttons, gesture feedback, and haptics | P0 | T007 | A | IN_PROGRESS |
-| T009 | Review event persistence and simple scheduling engine | P0 | T006, T008 | B | IN_PROGRESS |
-| T010 | Study progress, completion, due/empty states, and retry flow | P0 | T009 | B | IN_PROGRESS |
-| T011 | Core study loop polish, accessibility, and device responsiveness | P0 | T007, T008, T010 | A/B | BACKLOG |
-| T012 | Vocabulary bank browse, search, filter, and state grouping | P0 | T003, T004 | B | BACKLOG |
+| T001 | Product contract, domain glossary, and architecture decisions | P0 | — | A | DONE |
+| T002 | Expo TypeScript scaffold and navigation shell | P0 | T001 | A | DONE |
+| T003 | Design system and reusable interaction primitives | P0 | T002 | A | DONE |
+| T004 | Local domain model, SQLite schema, migrations, and repository layer | P0 | T001, T002 | B | DONE |
+| T005 | Deterministic demo/seed data and developer utilities | P1 | T004 | A/B | DONE |
+| T006 | Study queue and session state service | P0 | T004, T005 | B | DONE |
+| T007 | Vocabulary card front/back and flip interaction | P0 | T003, T006 | A | DONE |
+| T008 | Swipe grading, buttons, gesture feedback, and haptics | P0 | T007 | A | DONE |
+| T009 | Review event persistence and simple scheduling engine | P0 | T006, T008 | B | DONE |
+| T010 | Study progress, completion, due/empty states, and retry flow | P0 | T009 | B | DONE |
+| T011 | Core study loop polish, accessibility, and device responsiveness | P0 | T007, T008, T010 | A/B | READY |
+| T012 | Vocabulary bank browse, search, filter, and state grouping | P0 | T003, T004 | B | READY |
 | T013 | Manual term/sense/context create and edit flow | P0 | T004, T012 | B | BACKLOG |
 | T014 | Collections and source provenance model/UI | P1 | T004, T013 | B | BACKLOG |
 | T015 | Vocabulary detail, review history, and source-context screen | P1 | T009, T012, T014 | B | BACKLOG |
 | T016 | Import staging and review-before-add UX | P1 | T012, T014 | E | BACKLOG |
-| T017 | Language-pair onboarding and app settings | P1 | T002, T004 | B/C | BACKLOG |
-| T018 | Neon cloud schema, migrations, access control, and storage strategy | P0 | T004 | C | BACKLOG |
+| T017 | Language-pair onboarding and app settings | P1 | T002, T004 | B/C | READY |
+| T018 | Neon cloud schema, migrations, access control, and storage strategy | P0 | T004 | C | READY |
 | T019 | Neon Auth and guest-to-account migration | P1 | T017, T018 | C | BACKLOG |
 | T020 | Offline sync protocol: outbox, versions, tombstones, and sync contract | P0 | T004, T018 | C | BACKLOG |
 | T021 | Offline-first sync engine implementation | P0 | T020 | C | BACKLOG |
 | T022 | Conflict handling, retry/recovery, and sync-status UX | P0 | T021 | C | BACKLOG |
 | T023 | Backup/restore and multi-device verification | P1 | T019, T022 | C | BACKLOG |
-| T024 | Scheduler interface and FSRS-grade scheduling integration | P1 | T009 | D | BACKLOG |
+| T024 | Scheduler interface and FSRS-grade scheduling integration | P1 | T009 | D | READY |
 | T025 | Pronunciation, audio playback, caching, and replay controls | P1 | T013 | D | BACKLOG |
 | T026 | Recall-mode framework: reverse, cloze/context, listening, and typing | P1 | T009, T024, T025 | D | BACKLOG |
 | T027 | Learning stats, retention insights, streaks, and progress summaries | P1 | T009, T024 | D | BACKLOG |
