@@ -59,6 +59,17 @@ export async function restoreAuthUser(): Promise<AuthUser | null> {
   return userFromNeon(result.data.user);
 }
 
+export async function getNeonJwtToken(): Promise<string> {
+  if (!isNeonCloudConfigured()) throw new Error('Cloud account services are not configured for this build.');
+  const auth = getNeonClient().auth as typeof getNeonClient extends never
+    ? never
+    : { getJWTToken?: () => Promise<string | null | undefined> };
+  if (!auth.getJWTToken) throw new Error('This Neon Auth client cannot provide a data-access token.');
+  const token = await auth.getJWTToken();
+  if (!token) throw new Error('Sign in to use cloud-assisted imports.');
+  return token;
+}
+
 export async function signOutFromNeon(): Promise<void> {
   if (!isNeonCloudConfigured()) return;
   await getNeonClient().auth.signOut();
