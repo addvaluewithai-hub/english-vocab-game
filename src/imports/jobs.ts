@@ -189,6 +189,18 @@ export class ImportJobRepository {
     return (await this.get(id))!;
   }
 
+  async recordServerRetry(id: string, now = new Date()): Promise<ImportJob> {
+    const job = await this.get(id);
+    if (!job) throw new Error('Import job not found.');
+    if (!canRetryImport(job.retryCount)) throw new Error('This import reached its retry limit.');
+    await this.sqlite.runAsync(
+      `UPDATE import_jobs SET retry_count=retry_count+1,error_code=NULL,error_message=NULL,updated_at=? WHERE id=?`,
+      now.toISOString(),
+      id,
+    );
+    return (await this.get(id))!;
+  }
+
   async cancel(id: string, now = new Date()): Promise<void> {
     await this.sqlite.runAsync(
       `UPDATE import_jobs SET status='CANCELLED',updated_at=? WHERE id=? AND status IN ('QUEUED','PROCESSING','FAILED')`,
@@ -297,11 +309,11 @@ export class ImportJobService {
     const current = await this.repository.get(jobId);
     if (!current) throw new Error('Import job not found.');
     if (!canRetryImport(current.retryCount)) throw new Error('This import reached its retry limit.');
-    if (current.serverJobId) {
-      const snapshot = await this.transport.retry(current.serverJobId);
-      await this.repository.applyRemoteSnapshot(jobId, snapshot);
-    }
-    return this.repository.prepareRetry(jobId);
+    if (!current.serverJobId) return this.repository.prepareRetry(jobId);
+
+    const snapshot = await this.transport.retry(current.serverJobId);
+    await this.repository.applyRemoteSnapshot(jobId, snapshot);
+    return this.repository.recordServerRetry(jobId);
   }
 
   async cancel(jobId: string): Promise<void> {
