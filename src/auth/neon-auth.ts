@@ -1,31 +1,9 @@
-import { createAuthClient } from '@neondatabase/auth';
+import { getNeonClient, isNeonCloudConfigured } from '@/cloud/neon-client';
 
 export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
-}
-
-function authUrl(): string {
-  const value = process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim();
-  if (!value) {
-    throw new Error(
-      'Neon Auth is not configured for this build. Guest study still works offline.',
-    );
-  }
-  return value;
-}
-
-function createClient() {
-  return createAuthClient(authUrl());
-}
-
-type NeonAuthClient = ReturnType<typeof createClient>;
-let client: NeonAuthClient | null = null;
-
-function getClient(): NeonAuthClient {
-  client ??= createClient();
-  return client;
 }
 
 function userFromNeon(user: {
@@ -44,7 +22,7 @@ export async function signInWithEmail(
   email: string,
   password: string,
 ): Promise<AuthUser> {
-  const result = await getClient().signIn.email({
+  const result = await getNeonClient().auth.signIn.email({
     email: email.trim(),
     password,
   });
@@ -62,7 +40,7 @@ export async function signUpWithEmail(
 ): Promise<AuthUser> {
   const cleanEmail = email.trim();
   const cleanName = name.trim() || cleanEmail;
-  const result = await getClient().signUp.email({
+  const result = await getNeonClient().auth.signUp.email({
     email: cleanEmail,
     password,
     name: cleanName,
@@ -75,14 +53,13 @@ export async function signUpWithEmail(
 }
 
 export async function restoreAuthUser(): Promise<AuthUser | null> {
-  if (!process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim()) return null;
-
-  const result = await getClient().getSession();
+  if (!isNeonCloudConfigured()) return null;
+  const result = await getNeonClient().auth.getSession();
   if (result.error || !result.data?.user) return null;
   return userFromNeon(result.data.user);
 }
 
 export async function signOutFromNeon(): Promise<void> {
-  if (!process.env.EXPO_PUBLIC_NEON_AUTH_URL?.trim()) return;
-  await getClient().signOut();
+  if (!isNeonCloudConfigured()) return;
+  await getNeonClient().auth.signOut();
 }
