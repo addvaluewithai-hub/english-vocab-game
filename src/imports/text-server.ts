@@ -1,4 +1,5 @@
 import type { NormalizedImportCandidate } from './contracts';
+import { isLearnerLevel, type LearnerLevel } from './ranking';
 import {
   MAX_TEXT_CANDIDATES,
   normalizeAiTextCandidates,
@@ -15,6 +16,7 @@ type AiCandidateRow = {
   context: string | null;
   confidence: number;
   usefulness: number;
+  cefrLevel: LearnerLevel | null;
   isVisuallyConcrete: boolean | null;
 };
 
@@ -40,7 +42,7 @@ function jsonPayload(text: string): unknown {
 }
 
 function nullableString(value: unknown): string | null {
-  return typeof value === 'string' ? value : value === null ? null : null;
+  return typeof value === 'string' ? value : null;
 }
 
 function score(value: unknown): number | null {
@@ -69,6 +71,7 @@ function parseRows(text: string): AiCandidateRow[] {
       context: nullableString(row.context),
       confidence,
       usefulness,
+      cefrLevel: isLearnerLevel(row.cefrLevel) ? row.cefrLevel : null,
       isVisuallyConcrete: typeof row.isVisuallyConcrete === 'boolean' ? row.isVisuallyConcrete : null,
     });
     if (rows.length >= MAX_TEXT_CANDIDATES) break;
@@ -80,22 +83,25 @@ async function extractProseWithGemini(input: {
   text: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
+  learnerLevel: LearnerLevel;
 }): Promise<TextImportExtraction> {
   const system = [
     'You curate a compact vocabulary study set from user-provided source text.',
     'Return JSON only. Never wrap it in Markdown.',
     `Vocabulary is in ${input.targetLanguageCode}; translate or explain it in ${input.referenceLanguageCode}.`,
+    `The learner is approximately CEFR ${input.learnerLevel}. Prefer useful items around that level and up to one level above; do not delete contextually important easier/harder phrases solely because of level.`,
     `Return at most ${MAX_TEXT_CANDIDATES} useful words or multi-word phrases, not every token.`,
     'Prefer vocabulary that is meaningful in this exact context; preserve phrases and phrasal verbs.',
     'Use the sense that appears in the source. Context must be a short exact or minimally trimmed sentence from the source when available.',
     'Do not invent source context. If uncertain, lower confidence rather than pretending certainty.',
     'Exclude obvious function words, names that are not useful vocabulary, and trivial duplicates.',
     'Scores confidence and usefulness must be numbers from 0 to 1.',
+    'cefrLevel must be A1, A2, B1, B2, C1, C2, or null when uncertain.',
     'isVisuallyConcrete is true only for a clearly visual/concrete sense, false for clearly non-visual, otherwise null.',
   ].join('\n');
   const prompt = [
     'Return exactly this JSON shape:',
-    '{"candidates":[{"term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"confidence":0.9,"usefulness":0.9,"isVisuallyConcrete":null}]}',
+    '{"candidates":[{"term":"...","translation":"...","definition":null,"partOfSpeech":null,"context":null,"confidence":0.9,"usefulness":0.9,"cefrLevel":"B1","isVisuallyConcrete":null}]}',
     '',
     'SOURCE TEXT:',
     input.text,
@@ -133,6 +139,7 @@ export async function extractTextImport(input: {
   text: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
+  learnerLevel: LearnerLevel;
 }): Promise<TextImportExtraction> {
   const text = validatePastedText(input.text);
   const listCandidates = parseExplicitVocabularyList(text);
@@ -152,6 +159,7 @@ export async function extractTextImportCandidates(input: {
   text: string;
   targetLanguageCode: string;
   referenceLanguageCode: string;
+  learnerLevel: LearnerLevel;
 }): Promise<NormalizedImportCandidate[]> {
   return (await extractTextImport(input)).candidates;
 }
