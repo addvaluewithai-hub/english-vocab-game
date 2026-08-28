@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const LATEST_DATABASE_VERSION = 1;
+export const LATEST_DATABASE_VERSION = 2;
 
 const MIGRATION_001 = `
 CREATE TABLE IF NOT EXISTS language_pairs (
@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS terms (
   version INTEGER NOT NULL DEFAULT 1,
   deleted_at TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_terms_language_pair ON terms(language_pair_id, normalized_text);
 
 CREATE TABLE IF NOT EXISTS senses (
@@ -43,7 +42,6 @@ CREATE TABLE IF NOT EXISTS senses (
   version INTEGER NOT NULL DEFAULT 1,
   deleted_at TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_senses_term ON senses(term_id);
 
 CREATE TABLE IF NOT EXISTS cards (
@@ -66,7 +64,6 @@ CREATE TABLE IF NOT EXISTS collections (
   version INTEGER NOT NULL DEFAULT 1,
   deleted_at TEXT
 );
-
 CREATE TABLE IF NOT EXISTS collection_items (
   collection_id TEXT NOT NULL REFERENCES collections(id),
   card_id TEXT NOT NULL REFERENCES cards(id),
@@ -85,7 +82,6 @@ CREATE TABLE IF NOT EXISTS sources (
   version INTEGER NOT NULL DEFAULT 1,
   deleted_at TEXT
 );
-
 CREATE TABLE IF NOT EXISTS source_occurrences (
   id TEXT PRIMARY KEY NOT NULL,
   source_id TEXT NOT NULL REFERENCES sources(id),
@@ -99,7 +95,6 @@ CREATE TABLE IF NOT EXISTS source_occurrences (
   version INTEGER NOT NULL DEFAULT 1,
   deleted_at TEXT
 );
-
 CREATE INDEX IF NOT EXISTS idx_source_occurrences_sense ON source_occurrences(sense_id, created_at);
 
 CREATE TABLE IF NOT EXISTS user_card_states (
@@ -113,7 +108,6 @@ CREATE TABLE IF NOT EXISTS user_card_states (
   updated_at TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1
 );
-
 CREATE INDEX IF NOT EXISTS idx_user_card_states_due ON user_card_states(next_due_at);
 
 CREATE TABLE IF NOT EXISTS review_events (
@@ -124,12 +118,82 @@ CREATE TABLE IF NOT EXISTS review_events (
   reviewed_at TEXT NOT NULL,
   response_ms INTEGER
 );
-
 CREATE INDEX IF NOT EXISTS idx_review_events_card_time ON review_events(card_id, reviewed_at, id);
+`;
+
+const MIGRATION_002 = `
+ALTER TABLE senses ADD COLUMN pronunciation_text TEXT;
+ALTER TABLE senses ADD COLUMN example_translation TEXT;
+ALTER TABLE language_pairs ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'guest';
+ALTER TABLE collections ADD COLUMN language_pair_id TEXT REFERENCES language_pairs(id);
+
+UPDATE collections
+SET language_pair_id = (SELECT id FROM language_pairs WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1)
+WHERE language_pair_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_language_pairs_owner ON language_pairs(owner_key, deleted_at, created_at);
+CREATE INDEX IF NOT EXISTS idx_collections_language_pair ON collections(language_pair_id, deleted_at, name);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+INSERT OR IGNORE INTO app_settings(key, value, updated_at)
+VALUES ('active_owner_key', 'guest', '2026-08-28T00:00:00.000Z');
+INSERT OR IGNORE INTO app_settings(key, value, updated_at)
+SELECT 'active_language_pair_id', id, '2026-08-28T00:00:00.000Z'
+FROM language_pairs WHERE owner_key = 'guest' AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1;
+
+CREATE TABLE IF NOT EXISTS import_batches (
+  id TEXT PRIMARY KEY NOT NULL,
+  language_pair_id TEXT NOT NULL REFERENCES language_pairs(id),
+  source_type TEXT NOT NULL,
+  source_title TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS import_candidates (
+  id TEXT PRIMARY KEY NOT NULL,
+  batch_id TEXT NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE,
+  term TEXT NOT NULL,
+  translation TEXT NOT NULL,
+  definition TEXT,
+  context_sentence TEXT,
+  part_of_speech TEXT,
+  usefulness_score REAL,
+  confidence_score REAL,
+  duplicate_kind TEXT CHECK(duplicate_kind IN ('NONE', 'EXACT', 'TERM_ONLY')) NOT NULL DEFAULT 'NONE',
+  selected INTEGER NOT NULL DEFAULT 1 CHECK(selected IN (0, 1)),
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'APPROVED', 'REJECTED')),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_import_candidates_batch ON import_candidates(batch_id, status, selected);
+
+CREATE TABLE IF NOT EXISTS sync_outbox (
+  id TEXT PRIMARY KEY NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  operation TEXT NOT NULL CHECK(operation IN ('UPSERT', 'DELETE', 'APPEND')),
+  entity_version INTEGER NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT,
+  last_error_code TEXT,
+  UNIQUE(entity_type, entity_id, entity_version, operation)
+);
+CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending ON sync_outbox(next_attempt_at, created_at);
+
+CREATE TABLE IF NOT EXISTS sync_meta (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 export const DATABASE_MIGRATIONS: readonly { version: number; sql: string }[] = [
   { version: 1, sql: MIGRATION_001 },
+  { version: 2, sql: MIGRATION_002 },
 ];
 
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
