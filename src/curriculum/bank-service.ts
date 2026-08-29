@@ -157,7 +157,7 @@ export class CurriculumBankService {
           });
           await this.attachCourseProvenance(pkg, item, created.senseId);
           result.added += 1;
-        } catch (caught) {
+        } catch {
           const racedExisting = await this.findExactCard(languagePairId, item);
           if (racedExisting) {
             await catalogRepo.addToCollection(racedExisting.card_id, collection.id);
