@@ -146,6 +146,26 @@ export class ImportJobRepository {
     return rows.map(mapRow);
   }
 
+  async saveLocalCandidates(
+    id: string,
+    candidates: NormalizedImportCandidate[],
+    status: Extract<ImportJobStatus, 'PROCESSING' | 'NEEDS_REVIEW'> = 'PROCESSING',
+    now = new Date(),
+  ): Promise<ImportJob> {
+    await this.sqlite.runAsync(
+      `UPDATE import_jobs
+       SET status=?,result_json=?,error_code=NULL,error_message=NULL,updated_at=?
+       WHERE id=?`,
+      status,
+      JSON.stringify(candidates),
+      now.toISOString(),
+      id,
+    );
+    const updated = await this.get(id);
+    if (!updated) throw new Error('Import job no longer exists on this device.');
+    return updated;
+  }
+
   async applyRemoteSnapshot(id: string, snapshot: RemoteImportJobSnapshot, now = new Date()): Promise<ImportJob> {
     const current = await this.get(id);
     if (!current) throw new Error('Import job no longer exists on this device.');
@@ -213,6 +233,9 @@ export class ImportJobRepository {
     const job = await this.get(id);
     if (!job) throw new Error('Import job not found.');
     if (!job.candidates?.length) throw new Error('This import has no candidates to review.');
+    if (job.candidates.some((candidate) => !candidate.translation.trim())) {
+      throw new Error('This import still has vocabulary waiting for enrichment.');
+    }
 
     const existing = await this.sqlite.getFirstAsync<{ id: string }>(
       'SELECT id FROM import_batches WHERE job_id=? ORDER BY created_at DESC LIMIT 1',
