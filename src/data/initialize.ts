@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 import { migrateDatabase } from './migrations';
+import { ensureDefaultLanguagePair } from './preferences';
 import { ensureDemoSeedIfEmpty } from './seed';
 
 type ExclusiveTransactionTask = Parameters<SQLiteDatabase['withExclusiveTransactionAsync']>[0];
@@ -22,5 +23,6 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   // shared connection keeps transactional behavior in hosted previews.
   installWebExclusiveTransactionFallback(db);
   await migrateDatabase(db);
+  await ensureDefaultLanguagePair(db);
   await ensureDemoSeedIfEmpty(db);
 }
