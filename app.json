@@ -22,7 +22,19 @@
       "output": "server",
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-sqlite", "expo-notifications"],
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "headers": {
+            "Cross-Origin-Embedder-Policy": "credentialless",
+            "Cross-Origin-Opener-Policy": "same-origin"
+          }
+        }
+      ],
+      "expo-sqlite",
+      "expo-notifications"
+    ],
     "experiments": {
       "typedRoutes": true
     },
