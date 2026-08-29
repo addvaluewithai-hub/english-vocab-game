@@ -223,7 +223,7 @@ export function TextImportScreen() {
             Enriching {progress.completed.toLocaleString()} / {progress.total.toLocaleString()}
           </Text>
           <Text selectable style={{ color: colors.inkMuted, lineHeight: 21 }}>
-            Large lists are processed in safe batches of {AI_LIST_BATCH_SIZE}. Completed batches are checkpointed on this device.
+            Lists are enriched in small safe batches, and completed work is checkpointed on this device.
           </Text>
         </Surface>
       ) : null}
@@ -236,7 +236,7 @@ export function TextImportScreen() {
         onPress={() => void submit()}
       />
       <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 20 }}>
-        Signed-in lists use AI to fill translations, definitions, level, part of speech, and a natural study example. Lists that already contain meanings can still be staged offline as a guest. Up to 2,000 list items are accepted per import.
+        Signed-in lists use AI to fill missing translations, definitions, level, part of speech, and a natural study example. Lists that already contain meanings can still be staged offline as a guest.
       </Text>
     </ScrollView>
   );
