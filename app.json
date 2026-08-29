@@ -19,7 +19,7 @@
       }
     },
     "web": {
-      "output": "static"
+      "output": "server"
     },
     "plugins": [
       [
@@ -29,6 +29,14 @@
             "Cross-Origin-Embedder-Policy": "credentialless",
             "Cross-Origin-Opener-Policy": "same-origin"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Vocab Flow to choose vocabulary images.",
+          "cameraPermission": "Allow Vocab Flow to photograph vocabulary for import.",
+          "microphonePermission": false
         }
       ],
       "expo-sqlite",
