@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_LIST_CANDIDATES,
+  MAX_PASTED_TEXT_CHARS,
   MAX_TEXT_CANDIDATES,
   normalizeAiTextCandidates,
   parseExplicitVocabularyList,
+  parseLooseVocabularyList,
   textSourceFingerprint,
   validatePastedText,
 } from '@/imports/text-parser';
@@ -21,17 +23,40 @@ describe('text imports', () => {
     expect(candidates.every((item) => item.cefrLevel === null)).toBe(true);
   });
 
+  it('accepts term-only and mixed lists so AI can fill missing study data', () => {
+    const items = parseLooseVocabularyList([
+      'resilient',
+      '2. look forward to',
+      'reliable — موثوق',
+      'carry on',
+    ].join('\n'));
+    expect(items).toHaveLength(4);
+    expect(items.map((item) => item.term)).toEqual(['resilient', 'look forward to', 'reliable', 'carry on']);
+    expect(items.map((item) => item.translation)).toEqual([null, null, 'موثوق', null]);
+  });
+
+  it('accepts compact comma or semicolon term lists', () => {
+    expect(parseLooseVocabularyList('resilient, reliable; carry on').map((item) => item.term))
+      .toEqual(['resilient', 'reliable', 'carry on']);
+  });
+
   it('does not mistake normal prose for a vocabulary list', () => {
     const paragraph = 'I look forward to seeing you tomorrow. This reliable little car has been surprisingly useful.';
     expect(parseExplicitVocabularyList(paragraph)).toEqual([]);
+    expect(parseLooseVocabularyList(paragraph)).toEqual([]);
   });
 
-  it('deduplicates repeated list entries and enforces a bounded list size', () => {
-    const lines = Array.from({ length: MAX_LIST_CANDIDATES + 20 }, (_, index) => `term ${index} — meaning ${index}`);
-    lines.unshift('term 0 — meaning 0');
-    const candidates = parseExplicitVocabularyList(lines.join('\n'));
-    expect(candidates).toHaveLength(MAX_LIST_CANDIDATES);
-    expect(new Set(candidates.map((item) => item.candidateKey)).size).toBe(MAX_LIST_CANDIDATES);
+  it('deduplicates repeated list entries and supports up to two thousand items', () => {
+    const lines = Array.from({ length: MAX_LIST_CANDIDATES + 20 }, (_, index) => `term ${index}`);
+    lines.unshift('term 0');
+    const items = parseLooseVocabularyList(lines.join('\n'));
+    expect(items).toHaveLength(MAX_LIST_CANDIDATES);
+    expect(new Set(items.map((item) => item.itemKey)).size).toBe(MAX_LIST_CANDIDATES);
+  });
+
+  it('keeps same-spelling entries when the user supplied different senses', () => {
+    const items = parseLooseVocabularyList('bank — مصرف\nbank — ضفة');
+    expect(items).toHaveLength(2);
   });
 
   it('normalizes AI candidates, removes duplicates, clamps scores, and caps output', () => {
@@ -53,12 +78,28 @@ describe('text imports', () => {
     expect(candidates[0]?.occurrence.sentence).toBe('Context 0.');
   });
 
+  it('keeps generated list examples separate from source provenance', () => {
+    const [candidate] = normalizeAiTextCandidates([{
+      term: 'resilient',
+      translation: 'مرن',
+      definition: null,
+      partOfSpeech: 'adjective',
+      context: 'She remained resilient after the setback.',
+      confidence: 0.9,
+      usefulness: 0.9,
+      cefrLevel: 'B2',
+      isVisuallyConcrete: false,
+    }], { contextIsSource: false, candidatePrefix: 'list-ai' });
+    expect(candidate?.context).toContain('resilient');
+    expect(candidate?.occurrence.sentence).toBeNull();
+  });
+
   it('creates stable fingerprints from equivalent whitespace/casing', () => {
     expect(textSourceFingerprint(' Hello   WORLD ')).toBe(textSourceFingerprint('hello world'));
   });
 
   it('rejects empty and oversized pasted sources before expensive work', () => {
     expect(() => validatePastedText('   ')).toThrow('Paste some text');
-    expect(() => validatePastedText('x'.repeat(12_001))).toThrow('limited to');
+    expect(() => validatePastedText('x'.repeat(MAX_PASTED_TEXT_CHARS + 1))).toThrow('limited to');
   });
 });
