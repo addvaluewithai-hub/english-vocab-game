@@ -17,6 +17,9 @@
         "backgroundColor": "#F5F3EE"
       }
     },
+    "web": {
+      "output": "static"
+    },
     "plugins": ["expo-router", "expo-sqlite", "expo-notifications"],
     "experiments": {
       "typedRoutes": true
