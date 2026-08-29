@@ -1,0 +1,21 @@
+name: Preview device builds
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  android_preview:
+    name: Build Android preview
+    type: build
+    environment: preview
+    params:
+      platform: android
+      profile: preview
+
+  ios_preview:
+    name: Build iOS preview
+    type: build
+    environment: preview
+    params:
+      platform: ios
+      profile: preview

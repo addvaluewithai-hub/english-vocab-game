@@ -139,7 +139,8 @@ export function StudyScreen() {
         <Surface style={{ width: '100%', maxWidth: 520, padding: spacing.xl, gap: spacing.lg }}>
           <Text accessibilityRole="header" accessibilityLiveRegion="polite" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800', textAlign: 'center' }}>Session complete</Text>
           <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center', lineHeight: 25 }}>{snapshot.summary.reviewed} reviews · {snapshot.summary.knew} knew · {snapshot.summary.forgot} forgot · {snapshot.summary.retries} retries</Text>
-          <ActionButton label="Check for due cards" onPress={() => { setActiveStudySession(null); void restartSession(); }} />
+          {snapshot.deferredCount > 0 ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center', lineHeight: 24 }}>{snapshot.deferredCount} more cards are ready when you want another quick swipe session.</Text> : null}
+          <ActionButton label={snapshot.deferredCount > 0 ? 'Study another batch' : 'Check for due cards'} onPress={() => { setActiveStudySession(null); void restartSession(); }} />
           <Link href="/stats" asChild><ActionButton label="See learning stats" /></Link>
           <Link href="/bank" asChild><ActionButton label="Vocabulary bank" /></Link>
         </Surface>

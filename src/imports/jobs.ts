@@ -1,73 +1,27 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { SourceType } from '@/domain/types';
-import { ImportStagingService, type ProposedVocabulary } from './staging';
+import { asSqlDatabase } from '@/data/database';
+import { PreferencesRepository } from '@/data/preferences';
 import { createId } from '@/utils/id';
+import { ImportStagingService, type ProposedVocabulary } from './staging';
+import { canRetryImport, classifyImportFailure } from './policy';
+import { DEFAULT_LEARNER_LEVEL, isLearnerLevel } from './ranking';
+import type {
+  ImportJob,
+  ImportJobStatus,
+  ImportJobTransport,
+  ImportSourceType,
+  NormalizedImportCandidate,
+  RemoteImportJobSnapshot,
+} from './contracts';
 
-export type ImportSourceType = Exclude<SourceType, 'MANUAL' | 'GENERATED'>;
-export type ImportJobStatus = 'QUEUED' | 'PROCESSING' | 'NEEDS_REVIEW' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-
-export interface NormalizedSourceOccurrence {
-  sentence: string | null;
-  sourceUri: string | null;
-  locator: string | null;
-  pageNumber: number | null;
-  timestampSeconds: number | null;
-}
-
-export interface NormalizedImportCandidate {
-  candidateKey: string;
-  term: string;
-  translation: string;
-  definition: string | null;
-  partOfSpeech: string | null;
-  context: string | null;
-  occurrence: NormalizedSourceOccurrence;
-  confidence: number | null;
-  usefulness: number | null;
-  duplicateHint: 'NONE' | 'EXACT' | 'LIKELY' | null;
-  isVisuallyConcrete: boolean | null;
-}
-
-export interface ImportJob {
-  id: string;
-  languagePairId: string;
-  sourceType: ImportSourceType;
-  sourceFingerprint: string;
-  sourceLabel: string | null;
-  status: ImportJobStatus;
-  serverJobId: string | null;
-  candidates: NormalizedImportCandidate[] | null;
-  errorCode: string | null;
-  errorMessage: string | null;
-  retryCount: number;
-  artifactExpiresAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RemoteImportJobSnapshot {
-  serverJobId: string;
-  status: Exclude<ImportJobStatus, 'NEEDS_REVIEW'> | 'NEEDS_REVIEW';
-  candidates?: NormalizedImportCandidate[];
-  errorCode?: string | null;
-  errorMessage?: string | null;
-  artifactExpiresAt?: string | null;
-}
-
-export interface ImportJobTransport {
-  submit(input: {
-    idempotencyKey: string;
-    localJobId: string;
-    languagePairId: string;
-    sourceType: ImportSourceType;
-    sourceFingerprint: string;
-    sourceLabel: string | null;
-    sourcePayload: unknown;
-  }): Promise<RemoteImportJobSnapshot>;
-  get(serverJobId: string): Promise<RemoteImportJobSnapshot>;
-  retry(serverJobId: string): Promise<RemoteImportJobSnapshot>;
-  cancel(serverJobId: string): Promise<void>;
-}
+export type {
+  ImportJob,
+  ImportJobStatus,
+  ImportJobTransport,
+  ImportSourceType,
+  NormalizedImportCandidate,
+  RemoteImportJobSnapshot,
+} from './contracts';
 
 type ImportJobRow = {
   id: string;
@@ -136,6 +90,12 @@ function toStagingCandidate(candidate: NormalizedImportCandidate): ProposedVocab
     ...(candidate.partOfSpeech ? { partOfSpeech: candidate.partOfSpeech } : {}),
     ...(candidate.usefulness === null ? {} : { usefulnessScore: candidate.usefulness }),
     ...(candidate.confidence === null ? {} : { confidenceScore: candidate.confidence }),
+    ...(candidate.cefrLevel === null ? {} : { cefrLevel: candidate.cefrLevel }),
+    ...(candidate.occurrence.sourceUri ? { sourceUri: candidate.occurrence.sourceUri } : {}),
+    ...(candidate.occurrence.locator ? { sourceLocator: candidate.occurrence.locator } : {}),
+    ...(candidate.occurrence.pageNumber === null ? {} : { sourcePageNumber: candidate.occurrence.pageNumber }),
+    ...(candidate.occurrence.timestampSeconds === null ? {} : { sourceTimestampSeconds: candidate.occurrence.timestampSeconds }),
+    ...(candidate.isVisuallyConcrete === null ? {} : { isVisuallyConcrete: candidate.isVisuallyConcrete }),
   };
 }
 
@@ -186,6 +146,26 @@ export class ImportJobRepository {
     return rows.map(mapRow);
   }
 
+  async saveLocalCandidates(
+    id: string,
+    candidates: NormalizedImportCandidate[],
+    status: Extract<ImportJobStatus, 'PROCESSING' | 'NEEDS_REVIEW'> = 'PROCESSING',
+    now = new Date(),
+  ): Promise<ImportJob> {
+    await this.sqlite.runAsync(
+      `UPDATE import_jobs
+       SET status=?,result_json=?,error_code=NULL,error_message=NULL,updated_at=?
+       WHERE id=?`,
+      status,
+      JSON.stringify(candidates),
+      now.toISOString(),
+      id,
+    );
+    const updated = await this.get(id);
+    if (!updated) throw new Error('Import job no longer exists on this device.');
+    return updated;
+  }
+
   async applyRemoteSnapshot(id: string, snapshot: RemoteImportJobSnapshot, now = new Date()): Promise<ImportJob> {
     const current = await this.get(id);
     if (!current) throw new Error('Import job no longer exists on this device.');
@@ -220,8 +200,21 @@ export class ImportJobRepository {
     const job = await this.get(id);
     if (!job) throw new Error('Import job not found.');
     if (job.status !== 'FAILED' && job.status !== 'CANCELLED') return job;
+    if (!canRetryImport(job.retryCount)) throw new Error('This import reached its retry limit. Start a new import only if the source has changed.');
     await this.sqlite.runAsync(
       `UPDATE import_jobs SET status='QUEUED',error_code=NULL,error_message=NULL,retry_count=retry_count+1,updated_at=? WHERE id=?`,
+      now.toISOString(),
+      id,
+    );
+    return (await this.get(id))!;
+  }
+
+  async recordServerRetry(id: string, now = new Date()): Promise<ImportJob> {
+    const job = await this.get(id);
+    if (!job) throw new Error('Import job not found.');
+    if (!canRetryImport(job.retryCount)) throw new Error('This import reached its retry limit.');
+    await this.sqlite.runAsync(
+      `UPDATE import_jobs SET retry_count=retry_count+1,error_code=NULL,error_message=NULL,updated_at=? WHERE id=?`,
       now.toISOString(),
       id,
     );
@@ -240,6 +233,9 @@ export class ImportJobRepository {
     const job = await this.get(id);
     if (!job) throw new Error('Import job not found.');
     if (!job.candidates?.length) throw new Error('This import has no candidates to review.');
+    if (job.candidates.some((candidate) => !candidate.translation.trim())) {
+      throw new Error('This import still has vocabulary waiting for enrichment.');
+    }
 
     const existing = await this.sqlite.getFirstAsync<{ id: string }>(
       'SELECT id FROM import_batches WHERE job_id=? ORDER BY created_at DESC LIMIT 1',
@@ -281,12 +277,19 @@ export class ImportJobRepository {
 
 export class ImportJobService {
   private readonly repository: ImportJobRepository;
+  private readonly sqlite: SQLiteDatabase;
 
   constructor(
     sqlite: SQLiteDatabase,
     private readonly transport: ImportJobTransport,
   ) {
+    this.sqlite = sqlite;
     this.repository = new ImportJobRepository(sqlite);
+  }
+
+  private async learnerLevel() {
+    const value = await new PreferencesRepository(asSqlDatabase(this.sqlite)).get('learner_level');
+    return isLearnerLevel(value) ? value : DEFAULT_LEARNER_LEVEL;
   }
 
   async submit(jobId: string, sourcePayload: unknown): Promise<ImportJob> {
@@ -302,6 +305,7 @@ export class ImportJobService {
         sourceType: job.sourceType,
         sourceFingerprint: job.sourceFingerprint,
         sourceLabel: job.sourceLabel,
+        learnerLevel: await this.learnerLevel(),
         sourcePayload,
       });
       const updated = await this.repository.applyRemoteSnapshot(job.id, snapshot);
@@ -309,7 +313,7 @@ export class ImportJobService {
       return (await this.repository.get(job.id))!;
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Import service is unavailable.';
-      await this.repository.markFailed(job.id, 'NETWORK_OR_SERVER', message);
+      await this.repository.markFailed(job.id, classifyImportFailure(message), message);
       throw caught;
     }
   }
@@ -322,5 +326,23 @@ export class ImportJobService {
     const updated = await this.repository.applyRemoteSnapshot(job.id, snapshot);
     if (updated.status === 'NEEDS_REVIEW' && updated.candidates?.length) await this.repository.sendToStaging(updated.id);
     return (await this.repository.get(job.id))!;
+  }
+
+  async retry(jobId: string): Promise<ImportJob> {
+    const current = await this.repository.get(jobId);
+    if (!current) throw new Error('Import job not found.');
+    if (!canRetryImport(current.retryCount)) throw new Error('This import reached its retry limit.');
+    if (!current.serverJobId) return this.repository.prepareRetry(jobId);
+
+    const snapshot = await this.transport.retry(current.serverJobId);
+    await this.repository.applyRemoteSnapshot(jobId, snapshot);
+    return this.repository.recordServerRetry(jobId);
+  }
+
+  async cancel(jobId: string): Promise<void> {
+    const current = await this.repository.get(jobId);
+    if (!current) return;
+    if (current.serverJobId) await this.transport.cancel(current.serverJobId);
+    await this.repository.cancel(jobId);
   }
 }

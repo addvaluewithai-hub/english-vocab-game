@@ -1,9 +1,9 @@
-import type { ImportJobTransport, RemoteImportJobSnapshot } from './jobs';
+import type { ImportJobTransport, RemoteImportJobSnapshot } from './contracts';
 
 export type ImportAccessTokenProvider = () => Promise<string>;
 
 function baseUrl(): string {
-  const value = process.env.EXPO_PUBLIC_IMPORT_API_URL?.trim();
+  const value = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!value) throw new Error('Smart import service is not configured for this build.');
   return value.replace(/\/$/, '');
 }
@@ -49,7 +49,7 @@ export class HttpImportJobTransport implements ImportJobTransport {
   }
 
   async submit(input: Parameters<ImportJobTransport['submit']>[0]): Promise<RemoteImportJobSnapshot> {
-    const body = await this.request('/v1/import-jobs', {
+    const body = await this.request('/api/import-jobs', {
       method: 'POST',
       headers: { 'Idempotency-Key': input.idempotencyKey },
       body: JSON.stringify(input),
@@ -59,18 +59,18 @@ export class HttpImportJobTransport implements ImportJobTransport {
   }
 
   async get(serverJobId: string): Promise<RemoteImportJobSnapshot> {
-    const body = await this.request(`/v1/import-jobs/${encodeURIComponent(serverJobId)}`);
+    const body = await this.request(`/api/import-jobs/${encodeURIComponent(serverJobId)}`);
     if (!isSnapshot(body)) throw new Error('Import service returned an invalid job.');
     return body;
   }
 
   async retry(serverJobId: string): Promise<RemoteImportJobSnapshot> {
-    const body = await this.request(`/v1/import-jobs/${encodeURIComponent(serverJobId)}/retry`, { method: 'POST' });
+    const body = await this.request(`/api/import-jobs/${encodeURIComponent(serverJobId)}/retry`, { method: 'POST' });
     if (!isSnapshot(body)) throw new Error('Import service returned an invalid job.');
     return body;
   }
 
   async cancel(serverJobId: string): Promise<void> {
-    await this.request(`/v1/import-jobs/${encodeURIComponent(serverJobId)}/cancel`, { method: 'POST' });
+    await this.request(`/api/import-jobs/${encodeURIComponent(serverJobId)}/cancel`, { method: 'POST' });
   }
 }

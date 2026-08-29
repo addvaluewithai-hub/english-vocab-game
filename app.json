@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Vocab Flow",
-    "slug": "english-vocab-game",
+    "slug": "english-vocab",
+    "owner": "dragon2026s-team",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "vocabflow",
@@ -17,9 +18,30 @@
         "backgroundColor": "#F5F3EE"
       }
     },
-    "plugins": ["expo-router", "expo-sqlite", "expo-notifications"],
+    "web": {
+      "output": "server",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "headers": {
+            "Cross-Origin-Embedder-Policy": "credentialless",
+            "Cross-Origin-Opener-Policy": "same-origin"
+          }
+        }
+      ],
+      "expo-sqlite",
+      "expo-notifications"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "63fa98c3-c2ea-4146-95ea-a104d116f773"
+      }
     }
   }
 }

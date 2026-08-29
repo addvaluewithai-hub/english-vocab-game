@@ -1,0 +1,321 @@
+import type { ImportJobSubmission, RemoteImportJobSnapshot } from '@/imports/contracts';
+import { extractPdfVocabulary } from '@/imports/pdf-server';
+import { IMPORT_POLICY } from '@/imports/policy';
+import { isLearnerLevel } from '@/imports/ranking';
+import { extractTextImport } from '@/imports/text-server';
+import { normalizeYouTubeUrl } from '@/imports/youtube';
+import { extractYouTubeVocabulary } from '@/imports/youtube-server';
+import { authorizeLanguagePair } from '@/server/import-auth';
+import { setServerJobArtifact } from '@/server/import-job-control';
+import {
+  createOrGetServerImportJob,
+  markServerJobFailed,
+  markServerJobProcessing,
+  serverJobSnapshot,
+  storeServerCandidates,
+  type ServerImportJob,
+} from '@/server/import-job-store';
+import { importObjectKey } from '@/server/object-storage';
+
+function isSubmission(value: unknown): value is ImportJobSubmission {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.idempotencyKey === 'string'
+    && typeof row.localJobId === 'string'
+    && typeof row.languagePairId === 'string'
+    && typeof row.sourceType === 'string'
+    && typeof row.sourceFingerprint === 'string'
+    && isLearnerLevel(row.learnerLevel);
+}
+
+function textPayload(value: unknown): { text: string } | null {
+  if (!value || typeof value !== 'object') return null;
+  const text = (value as Record<string, unknown>).text;
+  return typeof text === 'string' ? { text } : null;
+}
+
+function youtubePayload(value: unknown): { url: string } | null {
+  if (!value || typeof value !== 'object') return null;
+  const url = (value as Record<string, unknown>).url;
+  return typeof url === 'string' ? { url } : null;
+}
+
+function filePayload(value: unknown): { objectKey: string; fileName: string; contentType: string; size: number } | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.objectKey !== 'string' || typeof row.fileName !== 'string'
+    || typeof row.contentType !== 'string' || typeof row.size !== 'number') return null;
+  return { objectKey: row.objectKey, fileName: row.fileName, contentType: row.contentType, size: row.size };
+}
+
+function errorResponse(caught: unknown): Response {
+  const message = caught instanceof Error ? caught.message : 'Import failed unexpectedly.';
+  if (message === 'AUTH_REQUIRED') return Response.json({ message: 'Sign in to use cloud-assisted imports.' }, { status: 401 });
+  if (message === 'LANGUAGE_PAIR_FORBIDDEN') return Response.json({ message: 'This language pair is not available to the signed-in account.' }, { status: 403 });
+  if (message.startsWith('AUTH_VALIDATION_FAILED:')) return Response.json({ message: 'Could not verify the signed-in account.' }, { status: 401 });
+  if (message === 'IMPORT_RETRY_REQUIRED') return Response.json({ message: 'Reopen this failed or cancelled import from Smart Imports before resubmitting the source.' }, { status: 409 });
+  if (message === 'YOUTUBE_UNAVAILABLE_OR_NOT_PUBLIC') {
+    return Response.json({ message: 'This video is unavailable, private, unlisted, or cannot be processed by the current YouTube importer.' }, { status: 422 });
+  }
+  if (message === 'PDF_SCANNED_UNSUPPORTED') {
+    return Response.json({ message: 'This PDF appears to be scanned. Text PDFs are supported in the MVP; photo/OCR can be added separately.' }, { status: 422 });
+  }
+  if (message === 'PDF_ENCRYPTED_OR_UNREADABLE') {
+    return Response.json({ message: 'This PDF is encrypted, inaccessible, or unreadable. Try an unlocked text PDF.' }, { status: 422 });
+  }
+  if (message === 'PDF_NO_CANDIDATES') {
+    return Response.json({ message: 'No useful vocabulary candidates were found in this PDF.' }, { status: 422 });
+  }
+  if (message === 'PDF_SIZE_LIMIT') {
+    return Response.json({ message: `PDF imports are limited to ${Math.round(IMPORT_POLICY.pdf.maxBytes / 1024 / 1024)} MB.` }, { status: 413 });
+  }
+  if (message === 'SERVER_DATA_API_NOT_CONFIGURED' || message === 'SERVER_DATABASE_NOT_CONFIGURED'
+    || message === 'AI_IMPORT_NOT_CONFIGURED' || message.includes('not configured')) {
+    return Response.json({ message: 'The smart-import service is not configured yet.' }, { status: 503 });
+  }
+  if (message.includes('limited to') || message.includes('No useful vocabulary') || message === 'YOUTUBE_NO_CANDIDATES') {
+    return Response.json({ message: message === 'YOUTUBE_NO_CANDIDATES' ? 'No useful vocabulary candidates were found in this video.' : message }, { status: 422 });
+  }
+  if (message === 'YOUTUBE_PROVIDER_UNAVAILABLE' || message.startsWith('YOUTUBE_PROVIDER_REJECTED:')) {
+    return Response.json({ message: 'YouTube analysis is temporarily unavailable. Please retry later.' }, { status: 503 });
+  }
+  if (message === 'PDF_PROVIDER_UNAVAILABLE' || message.startsWith('PDF_PROVIDER_REJECTED:')) {
+    return Response.json({ message: 'PDF analysis is temporarily unavailable. Please retry later.' }, { status: 503 });
+  }
+  return Response.json({ message: 'Smart import could not process this source right now.' }, { status: 502 });
+}
+
+async function existingTerminalOrActive(job: ServerImportJob): Promise<RemoteImportJobSnapshot | null> {
+  if (job.status === 'QUEUED') return null;
+  if (job.status === 'FAILED' || job.status === 'CANCELLED') throw new Error('IMPORT_RETRY_REQUIRED');
+  return serverJobSnapshot(job.ownerId, job.id);
+}
+
+async function beginProcessing(job: ServerImportJob, providerKind: string, metrics?: Record<string, unknown>): Promise<boolean> {
+  return markServerJobProcessing({
+    ownerId: job.ownerId,
+    id: job.id,
+    providerKind,
+    ...(metrics ? { metrics } : {}),
+  });
+}
+
+async function processText(
+  body: ImportJobSubmission,
+  pair: Awaited<ReturnType<typeof authorizeLanguagePair>>,
+  startedAt: number,
+): Promise<RemoteImportJobSnapshot> {
+  const payload = textPayload(body.sourcePayload);
+  if (!payload) throw new Error('TEXT_PAYLOAD_REQUIRED');
+  if (payload.text.length > IMPORT_POLICY.text.maxCharacters) throw new Error(`Text is limited to ${IMPORT_POLICY.text.maxCharacters} characters.`);
+  const job = await createOrGetServerImportJob({
+    id: body.localJobId,
+    ownerId: pair.ownerId,
+    languagePairId: body.languagePairId,
+    sourceType: 'TEXT',
+    sourceFingerprint: body.sourceFingerprint,
+    sourceLabel: body.sourceLabel,
+    sourcePayload: { charCount: payload.text.length, inputKind: 'PROSE', learnerLevel: body.learnerLevel },
+  });
+  const existing = await existingTerminalOrActive(job);
+  if (existing) return existing;
+  if (!await beginProcessing(job, 'GEMINI_ROUTER')) {
+    const concurrent = await serverJobSnapshot(pair.ownerId, job.id);
+    if (concurrent) return concurrent;
+    throw new Error('SERVER_JOB_STATE_CHANGED');
+  }
+  try {
+    const extraction = await extractTextImport({
+      text: payload.text,
+      targetLanguageCode: pair.targetLanguageCode,
+      referenceLanguageCode: pair.referenceLanguageCode,
+      learnerLevel: body.learnerLevel,
+    });
+    await storeServerCandidates({
+      ownerId: pair.ownerId,
+      jobId: job.id,
+      candidates: extraction.candidates,
+      metrics: {
+        durationMs: Date.now() - startedAt,
+        inputChars: payload.text.length,
+        candidateCount: extraction.candidates.length,
+        learnerLevel: body.learnerLevel,
+        provider: extraction.provider,
+        model: extraction.model,
+        fallbackCount: extraction.fallbackCount,
+        attempts: extraction.attempts,
+        ...(extraction.usage ? { usage: extraction.usage } : {}),
+      },
+    });
+    const snapshot = await serverJobSnapshot(pair.ownerId, job.id);
+    if (!snapshot) throw new Error('SERVER_JOB_RESULT_MISSING');
+    return snapshot;
+  } catch (caught) {
+    await markServerJobFailed({
+      ownerId: pair.ownerId,
+      id: job.id,
+      code: 'TEXT_PROCESSING_FAILED',
+      message: caught instanceof Error ? caught.message.slice(0, 300) : 'Text processing failed.',
+      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_ROUTER', learnerLevel: body.learnerLevel },
+    });
+    throw caught;
+  }
+}
+
+async function processYouTube(
+  body: ImportJobSubmission,
+  pair: Awaited<ReturnType<typeof authorizeLanguagePair>>,
+  startedAt: number,
+): Promise<RemoteImportJobSnapshot> {
+  const payload = youtubePayload(body.sourcePayload);
+  if (!payload) throw new Error('YOUTUBE_PAYLOAD_REQUIRED');
+  const source = normalizeYouTubeUrl(payload.url);
+  if (body.sourceFingerprint !== source.fingerprint) throw new Error('YOUTUBE_FINGERPRINT_MISMATCH');
+
+  const job = await createOrGetServerImportJob({
+    id: body.localJobId,
+    ownerId: pair.ownerId,
+    languagePairId: body.languagePairId,
+    sourceType: 'YOUTUBE',
+    sourceFingerprint: source.fingerprint,
+    sourceLabel: body.sourceLabel,
+    sourcePayload: { videoId: source.videoId, canonicalUrl: source.canonicalUrl, learnerLevel: body.learnerLevel },
+  });
+  const existing = await existingTerminalOrActive(job);
+  if (existing) return existing;
+  if (!await beginProcessing(job, 'GEMINI_YOUTUBE_ROUTER')) {
+    const concurrent = await serverJobSnapshot(pair.ownerId, job.id);
+    if (concurrent) return concurrent;
+    throw new Error('SERVER_JOB_STATE_CHANGED');
+  }
+  try {
+    const extraction = await extractYouTubeVocabulary({
+      url: source.canonicalUrl,
+      targetLanguageCode: pair.targetLanguageCode,
+      referenceLanguageCode: pair.referenceLanguageCode,
+      learnerLevel: body.learnerLevel,
+    });
+    await storeServerCandidates({
+      ownerId: pair.ownerId,
+      jobId: job.id,
+      candidates: extraction.candidates,
+      metrics: {
+        durationMs: Date.now() - startedAt,
+        candidateCount: extraction.candidates.length,
+        learnerLevel: body.learnerLevel,
+        provider: 'GEMINI_YOUTUBE_ROUTER',
+        model: extraction.model,
+        fallbackCount: extraction.fallbackCount,
+        attempts: extraction.attempts,
+        ...(extraction.usage ? { usage: extraction.usage } : {}),
+      },
+    });
+    const snapshot = await serverJobSnapshot(pair.ownerId, job.id);
+    if (!snapshot) throw new Error('SERVER_JOB_RESULT_MISSING');
+    return snapshot;
+  } catch (caught) {
+    await markServerJobFailed({
+      ownerId: pair.ownerId,
+      id: job.id,
+      code: 'YOUTUBE_PROCESSING_FAILED',
+      message: caught instanceof Error ? caught.message.slice(0, 300) : 'YouTube processing failed.',
+      metrics: { durationMs: Date.now() - startedAt, provider: 'GEMINI_YOUTUBE_ROUTER', learnerLevel: body.learnerLevel },
+    });
+    throw caught;
+  }
+}
+
+async function processPdf(
+  body: ImportJobSubmission,
+  pair: Awaited<ReturnType<typeof authorizeLanguagePair>>,
+  startedAt: number,
+): Promise<RemoteImportJobSnapshot> {
+  const payload = filePayload(body.sourcePayload);
+  if (!payload || payload.contentType !== 'application/pdf') throw new Error('PDF_PAYLOAD_REQUIRED');
+  if (payload.size <= 0 || payload.size > IMPORT_POLICY.pdf.maxBytes) throw new Error('PDF_SIZE_LIMIT');
+  const expectedKey = importObjectKey({
+    ownerId: pair.ownerId,
+    languagePairId: pair.id,
+    localJobId: body.localJobId,
+    fileName: payload.fileName,
+  });
+  if (payload.objectKey !== expectedKey) throw new Error('IMPORT_ARTIFACT_FORBIDDEN');
+
+  const expiresAt = new Date(Date.now() + IMPORT_POLICY.pdf.artifactRetentionHours * 60 * 60 * 1000).toISOString();
+  const job = await createOrGetServerImportJob({
+    id: body.localJobId,
+    ownerId: pair.ownerId,
+    languagePairId: pair.id,
+    sourceType: 'PDF',
+    sourceFingerprint: body.sourceFingerprint,
+    sourceLabel: body.sourceLabel,
+    sourcePayload: { fileName: payload.fileName, contentType: payload.contentType, size: payload.size, learnerLevel: body.learnerLevel },
+    artifactKey: payload.objectKey,
+  });
+  await setServerJobArtifact({ ownerId: pair.ownerId, id: job.id, artifactKey: payload.objectKey, expiresAt });
+  const existing = await existingTerminalOrActive(job);
+  if (existing) return existing;
+  if (!await beginProcessing(job, 'GEMINI_PDF_URL_CONTEXT', { inputBytes: payload.size, learnerLevel: body.learnerLevel })) {
+    const concurrent = await serverJobSnapshot(pair.ownerId, job.id);
+    if (concurrent) return concurrent;
+    throw new Error('SERVER_JOB_STATE_CHANGED');
+  }
+  try {
+    const extraction = await extractPdfVocabulary({
+      objectKey: payload.objectKey,
+      targetLanguageCode: pair.targetLanguageCode,
+      referenceLanguageCode: pair.referenceLanguageCode,
+      learnerLevel: body.learnerLevel,
+    });
+    await storeServerCandidates({
+      ownerId: pair.ownerId,
+      jobId: job.id,
+      candidates: extraction.candidates,
+      metrics: {
+        durationMs: Date.now() - startedAt,
+        inputBytes: payload.size,
+        candidateCount: extraction.candidates.length,
+        pageCount: extraction.pageCount,
+        learnerLevel: body.learnerLevel,
+        provider: 'GEMINI_PDF_URL_CONTEXT',
+        model: extraction.model,
+        fallbackCount: extraction.fallbackCount,
+        attempts: extraction.attempts,
+        ...(extraction.usage ? { usage: extraction.usage } : {}),
+      },
+    });
+    const snapshot = await serverJobSnapshot(pair.ownerId, job.id);
+    if (!snapshot) throw new Error('SERVER_JOB_RESULT_MISSING');
+    return snapshot;
+  } catch (caught) {
+    const code = caught instanceof Error ? caught.message.split(':')[0] || 'PDF_PROCESSING_FAILED' : 'PDF_PROCESSING_FAILED';
+    await markServerJobFailed({
+      ownerId: pair.ownerId,
+      id: job.id,
+      code,
+      message: caught instanceof Error ? caught.message.slice(0, 300) : 'PDF processing failed.',
+      metrics: { durationMs: Date.now() - startedAt, inputBytes: payload.size, provider: 'GEMINI_PDF_URL_CONTEXT', learnerLevel: body.learnerLevel },
+    });
+    throw caught;
+  }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  try {
+    const body: unknown = await request.json();
+    if (!isSubmission(body)) return Response.json({ message: 'Invalid import request.' }, { status: 400 });
+    if (!['TEXT', 'PDF', 'YOUTUBE'].includes(body.sourceType)) {
+      return Response.json({ message: `The ${body.sourceType} adapter is not enabled by this route yet.` }, { status: 422 });
+    }
+    const pair = await authorizeLanguagePair(request, body.languagePairId);
+    const startedAt = Date.now();
+    const snapshot = body.sourceType === 'TEXT'
+      ? await processText(body, pair, startedAt)
+      : body.sourceType === 'YOUTUBE'
+        ? await processYouTube(body, pair, startedAt)
+        : await processPdf(body, pair, startedAt);
+    return Response.json(snapshot);
+  } catch (caught) {
+    return errorResponse(caught);
+  }
+}

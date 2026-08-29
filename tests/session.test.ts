@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReviewEvent, StudyCard, UserCardState } from '@/domain/types';
 import { SimpleReviewScheduler } from '@/study/scheduler';
-import { StudySessionService } from '@/study/session';
+import { STUDY_SESSION_CARD_LIMIT, STUDY_SESSION_NEW_CARD_LIMIT, StudySessionService } from '@/study/session';
 
 function card(id: string, due: string | null, createdAt = '2026-08-01T00:00:00.000Z'): StudyCard {
   return {
@@ -27,7 +27,26 @@ describe('StudySession', () => {
     const session = await new StudySessionService(source, new MemoryEvents(), new MemoryStates(), new SimpleReviewScheduler()).createSession(new Date('2026-08-28T00:00:00.000Z'));
     expect(session.snapshot.current?.card.cardId).toBe('overdue');
     expect(session.snapshot.plannedTotal).toBe(2);
+    expect(session.snapshot.deferredCount).toBe(0);
   });
+
+  it('bounds a very large new bank instead of putting every card in one swipe session', async () => {
+    const source = { async listStudyCandidates() { return Array.from({ length: 2_000 }, (_, index) => card(`new-${index}`, null, `2026-08-${String((index % 27) + 1).padStart(2, '0')}T00:00:00.000Z`)); } };
+    const session = await new StudySessionService(source, new MemoryEvents(), new MemoryStates(), new SimpleReviewScheduler()).createSession(new Date('2026-08-28T00:00:00.000Z'));
+    expect(session.snapshot.initialTotal).toBe(STUDY_SESSION_NEW_CARD_LIMIT);
+    expect(session.snapshot.initialTotal).toBeLessThanOrEqual(STUDY_SESSION_CARD_LIMIT);
+    expect(session.snapshot.deferredCount).toBe(2_000 - STUDY_SESSION_NEW_CARD_LIMIT);
+  });
+
+  it('prioritizes due reviews before new cards and respects the session ceiling', async () => {
+    const reviews = Array.from({ length: 18 }, (_, index) => card(`review-${index}`, '2026-08-10T00:00:00.000Z'));
+    const fresh = Array.from({ length: 30 }, (_, index) => card(`new-${index}`, null));
+    const session = await new StudySessionService({ async listStudyCandidates() { return [...fresh, ...reviews]; } }, new MemoryEvents(), new MemoryStates(), new SimpleReviewScheduler()).createSession(new Date('2026-08-28T00:00:00.000Z'));
+    expect(session.snapshot.initialTotal).toBe(STUDY_SESSION_CARD_LIMIT);
+    expect(session.snapshot.current?.card.cardId).toBe('review-0');
+    expect(session.snapshot.deferredCount).toBe(28);
+  });
+
   it('adds one same-session retry for a forgotten card and then completes', async () => {
     const events = new MemoryEvents(); const states = new MemoryStates();
     const session = await new StudySessionService({ async listStudyCandidates() { return [card('car', null)]; } }, events, states, new SimpleReviewScheduler()).createSession(new Date('2026-08-28T00:00:00.000Z'));

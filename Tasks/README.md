@@ -20,13 +20,17 @@ This folder is the **source of truth for product development**. Every implementa
 
 ## Product principles
 
-1. The product is a **personal vocabulary memory system**, not a generic flashcard editor.
+1. The product is a **personal vocabulary memory system**, not a generic flashcard editor and not an LMS.
 2. The learning unit is `Term/Phrase → Sense → Context → Review`, not `word → translation`.
 3. Mobile study must be **offline-first** and instant; network calls must not sit in the swipe path.
-4. The Tinder-like swipe is an interaction pattern, not the learning algorithm.
-5. Review history is append-only product data; do not reduce learning state to a single boolean.
-6. Smart imports must be curated before entering the bank: `source → extract → filter → user approval → bank`.
-7. The app should reach a useful local MVP before AI, PDF, YouTube, or other expensive ingestion work.
+4. The Tinder-like one-card swipe is the **primary product experience**. New features should feed or improve that loop rather than create a competing lesson flow.
+5. Bank size is never session size. Study must remain bounded and quick even when the bank contains thousands of cards.
+6. Due/learning reviews take priority; unseen vocabulary enters in controlled amounts rather than flooding the learner.
+7. Review history is append-only product data; do not reduce learning state to a single boolean.
+8. Smart imports must be curated before entering the bank: `source → extract → filter → user approval → bank`.
+9. Manual, imported, and future curated built-in content all feed the **same canonical Sense/Card + scheduler state**; content origin must not create parallel learning systems.
+10. Curated internal content may reuse reviewed levels/topics/chunks/context from `addvaluewithai-hub/english-course`, but this app does not inherit its lesson player, assessments, video pipeline, or LMS architecture.
+11. The app should reach a useful beta before optional built-in content or other scope-expanding enhancements delay the core swipe/import loop.
 
 ## Target technology
 
@@ -84,14 +88,14 @@ This folder is the **source of truth for product development**. Every implementa
 | T028 | Daily due reminders and notification preferences | P1 | T017, T024 | D | BLOCKED |
 | T029 | Adaptive card enrichment rules by vocabulary/sense type | P2 | T025, T026 | D/E | DONE |
 | T030 | Import job architecture and ingestion pipeline framework | P1 | T016, T018, T021 | E | DONE |
-| T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | READY |
-| T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | READY |
-| T033 | YouTube import with transcript extraction and timestamp provenance | P1 | T030 | E | READY |
+| T031 | Paste/text/list import with normalization, dedupe, and enrichment | P1 | T030 | E | IN_PROGRESS |
+| T032 | PDF import with extraction, page provenance, and context capture | P1 | T030 | E | IN_PROGRESS |
+| T033 | YouTube import with timestamped spoken-context provenance | P1 | T030 | E | IN_PROGRESS |
 | T034 | Web article/URL import with clean-text extraction and provenance | P2 | T030 | E | READY |
 | T035 | Photo/image vocabulary import with OCR workflow and review staging | P2 | T030 | E | READY |
-| T036 | AI usefulness/level filtering, sense selection, and import approval ranking | P1 | T031, T032, T033 | E | BACKLOG |
-| T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | READY |
-| T038 | Import failures, limits, cost controls, observability, and retry UX | P1 | T030, T031, T032, T033 | E | BACKLOG |
+| T036 | AI usefulness/level filtering, sense selection, and import approval ranking | P1 | T031, T032, T033 | E | IN_PROGRESS |
+| T037 | Optional media/image enrichment generation, caching, and storage controls | P2 | T029, T030 | E | BACKLOG |
+| T038 | Import failures, limits, cost controls, observability, and retry UX | P1 | T030, T031, T032, T033 | E | IN_PROGRESS |
 | T039 | Privacy-safe analytics and production error reporting | P1 | T010, T021 | F | READY |
 | T040 | Security/privacy controls, data export, account deletion, and retention policy | P0 | T018, T019 | F | READY |
 | T041 | Performance, offline, storage, memory, and battery hardening | P0 | T022, T036 | F | BACKLOG |
@@ -100,12 +104,16 @@ This folder is the **source of truth for product development**. Every implementa
 | T044 | Store readiness: onboarding polish, permissions, privacy copy, metadata, assets | P0 | T043 | F | BACKLOG |
 | T045 | Release-candidate hardening and production launch | P0 | T044 | F | BACKLOG |
 | T046 | Post-launch monitoring, feedback triage, and release cadence | P1 | T045 | Post-launch | BACKLOG |
+| T047 | Bounded swipe feed and large-bank queue policy | P0 | T006, T010, T024 | D/F | IN_PROGRESS |
+| T048 | Curated built-in vocabulary/chunk feed from reviewed content export | P2 | T012, T014, T024, T047 | Post-MVP | BACKLOG |
 
 ## Recommended execution order
 
-Follow dependencies rather than blindly following numeric order. The intended critical path is:
+Follow dependencies rather than blindly following numeric order. The immediate correction is to finish `T047` so large banks cannot break the short swipe experience, then continue the current Gate E beta work:
 
-`T001 → T002 → T003/T004 → T005 → T006 → T007 → T008 → T009 → T010 → T011/T012/T013 → T014/T017 → T018 → T020 → T021 → T022 → T019/T023 → T024–T028 → T030 → T031–T033 → T036/T038 → T039–T045 → T046`
+`T047 → T031–T033 → T036/T038 → functional beta validation → T039–T045 → T046`
+
+`T048` is intentionally outside the current critical path. It is an approved future content source, not a reason to delay the beta.
 
 Parallel work is safe where dependencies allow it. For example, UI primitives (`T003`) and local data foundations (`T004`) can proceed in parallel after the Expo shell exists.
 
@@ -133,3 +141,7 @@ A task is `DONE` only when:
 ## Planning policy
 
 This roadmap should evolve when implementation teaches us something new, but changes should be deliberate. If a task becomes too large for one focused work session, split it before implementation and update dependencies here. If two tasks are consistently inseparable, merge them and preserve the original intent in the commit history.
+
+**Current deliberate defers:**
+- T037 generated/fetched visual enrichment remains backlogged until recurring study and smart-import usage validate the need.
+- T048 curated built-in content remains backlogged until the functional beta validates the swipe/import loop. If implemented, it must remain a card source rather than becoming an LMS/course player.

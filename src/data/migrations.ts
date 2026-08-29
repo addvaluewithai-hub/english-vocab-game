@@ -2,8 +2,10 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { MIGRATION_003 } from './migration-v3';
 import { MIGRATION_004 } from './migration-v4-learning';
 import { MIGRATION_005 } from './migration-v5-enrichment-imports';
+import { MIGRATION_006 } from './migration-v6-import-provenance';
+import { MIGRATION_007 } from './migration-v7-import-ranking';
 
-export const LATEST_DATABASE_VERSION = 5;
+export const LATEST_DATABASE_VERSION = 7;
 
 const MIGRATION_001 = `
 CREATE TABLE IF NOT EXISTS language_pairs (
@@ -200,6 +202,8 @@ export const DATABASE_MIGRATIONS: readonly { version: number; sql: string }[] = 
   { version: 3, sql: MIGRATION_003 },
   { version: 4, sql: MIGRATION_004 },
   { version: 5, sql: MIGRATION_005 },
+  { version: 6, sql: MIGRATION_006 },
+  { version: 7, sql: MIGRATION_007 },
 ];
 
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {

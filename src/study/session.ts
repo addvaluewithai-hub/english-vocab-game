@@ -2,6 +2,9 @@ import type { ReviewEvent, ReviewGrade, ReviewMode, ReviewModeResult, StudyCard,
 import { createId } from '@/utils/id';
 import type { ReviewScheduler } from './scheduler';
 
+export const STUDY_SESSION_CARD_LIMIT = 20;
+export const STUDY_SESSION_NEW_CARD_LIMIT = 10;
+
 export interface StudyDataSource {
   listStudyCandidates(): Promise<StudyCard[]>;
 }
@@ -32,6 +35,7 @@ export interface StudySessionSnapshot {
   plannedTotal: number;
   reviewedCount: number;
   remainingCount: number;
+  deferredCount: number;
   summary: SessionSummary;
 }
 export interface ReviewSubmissionMeta {
@@ -53,6 +57,16 @@ function sortCandidates(a: StudyCard, b: StudyCard): number {
   return aOrder.localeCompare(bOrder) || a.cardId.localeCompare(b.cardId);
 }
 
+function selectSessionCards(cards: StudyCard[]): { selected: StudyCard[]; deferredCount: number } {
+  const reviewCards = cards.filter((card) => card.state !== null);
+  const newCards = cards.filter((card) => card.state === null);
+  const selectedReviews = reviewCards.slice(0, STUDY_SESSION_CARD_LIMIT);
+  const remainingCapacity = Math.max(0, STUDY_SESSION_CARD_LIMIT - selectedReviews.length);
+  const selectedNew = newCards.slice(0, Math.min(STUDY_SESSION_NEW_CARD_LIMIT, remainingCapacity));
+  const selected = [...selectedReviews, ...selectedNew];
+  return { selected, deferredCount: Math.max(0, cards.length - selected.length) };
+}
+
 export class StudySession {
   private cursor = 0;
   private readonly queue: StudyQueueItem[];
@@ -62,6 +76,7 @@ export class StudySession {
   constructor(
     readonly sessionId: string,
     initialCards: StudyCard[],
+    readonly deferredCount: number,
     private readonly events: ReviewEventStore,
     private readonly states: CardStateStore,
     private readonly scheduler: ReviewScheduler,
@@ -83,6 +98,7 @@ export class StudySession {
       plannedTotal: this.queue.length,
       reviewedCount: this.cursor,
       remainingCount: Math.max(0, this.queue.length - this.cursor),
+      deferredCount: this.deferredCount,
       summary: { ...this.summary },
     };
   }
@@ -159,6 +175,7 @@ export class StudySessionService {
   async createSession(now = new Date()): Promise<StudySession> {
     const candidates = await this.source.listStudyCandidates();
     const due = candidates.filter((card) => isDue(card, now)).sort(sortCandidates);
-    return new StudySession(createId('session'), due, this.events, this.states, this.scheduler);
+    const { selected, deferredCount } = selectSessionCards(due);
+    return new StudySession(createId('session'), selected, deferredCount, this.events, this.states, this.scheduler);
   }
 }
