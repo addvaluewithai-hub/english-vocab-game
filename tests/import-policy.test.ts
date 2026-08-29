@@ -7,9 +7,9 @@ import {
 
 describe('import reliability policy', () => {
   it('bounds source sizes and candidate counts centrally', () => {
-    expect(IMPORT_POLICY.text.maxCharacters).toBe(120_000);
-    expect(IMPORT_POLICY.text.maxListCandidates).toBe(2_000);
-    expect(IMPORT_POLICY.text.aiListBatchSize).toBe(40);
+    expect(IMPORT_POLICY.text.maxCharacters).toBe(12_000);
+    expect(IMPORT_POLICY.text.maxListCandidates).toBe(60);
+    expect(IMPORT_POLICY.text.aiListBatchSize).toBe(30);
     expect(IMPORT_POLICY.pdf.maxBytes).toBe(25 * 1024 * 1024);
     expect(IMPORT_POLICY.youtube.maxCandidates).toBe(32);
     expect(IMPORT_POLICY.photo.maxBytes).toBe(10 * 1024 * 1024);
