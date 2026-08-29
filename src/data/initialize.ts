@@ -1,34 +1,26 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { DATABASE_MIGRATIONS, LATEST_DATABASE_VERSION, migrateDatabase } from './migrations';
+import { migrateDatabase } from './migrations';
 import { ensureDemoSeedIfEmpty } from './seed';
 
-async function migrateDatabaseForWeb(db: SQLiteDatabase): Promise<void> {
-  await db.execAsync('PRAGMA foreign_keys = ON;');
-  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  let currentVersion = row?.user_version ?? 0;
+type ExclusiveTransactionTask = Parameters<SQLiteDatabase['withExclusiveTransactionAsync']>[0];
+type ExclusiveTransaction = Parameters<ExclusiveTransactionTask>[0];
 
-  if (currentVersion > LATEST_DATABASE_VERSION) {
-    throw new Error(`Database version ${currentVersion} is newer than app version ${LATEST_DATABASE_VERSION}.`);
-  }
+function installWebExclusiveTransactionFallback(db: SQLiteDatabase): void {
+  if (Platform.OS !== 'web') return;
 
-  for (const migration of DATABASE_MIGRATIONS) {
-    if (migration.version <= currentVersion) continue;
-
-    // Expo SQLite does not support withExclusiveTransactionAsync on web.
+  db.withExclusiveTransactionAsync = async (task: ExclusiveTransactionTask): Promise<void> => {
     await db.withTransactionAsync(async () => {
-      await db.execAsync(migration.sql);
-      await db.execAsync(`PRAGMA user_version = ${migration.version}`);
+      await task(db as unknown as ExclusiveTransaction);
     });
-    currentVersion = migration.version;
-  }
+  };
 }
 
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
-  if (Platform.OS === 'web') {
-    await migrateDatabaseForWeb(db);
-  } else {
-    await migrateDatabase(db);
-  }
+  // Expo SQLite does not support withExclusiveTransactionAsync on web.
+  // Install a database-instance fallback once so every feature using this
+  // shared connection keeps transactional behavior in hosted previews.
+  installWebExclusiveTransactionFallback(db);
+  await migrateDatabase(db);
   await ensureDemoSeedIfEmpty(db);
 }
