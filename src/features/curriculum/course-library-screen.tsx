@@ -5,11 +5,13 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ActionButton, Chip, EmptyState, Surface } from '@/components/primitives';
 import { CurriculumBankService, type CurriculumImportResult, type CurriculumSelection } from '@/curriculum/bank-service';
 import {
+  A1_CATALOG_STATS,
   CURRICULUM_PACKAGES,
   CURRICULUM_UNITS,
   curriculumSelectionKey,
   filterCurriculumPackages,
   type CurriculumKindFilter,
+  type CurriculumPackage,
 } from '@/curriculum/catalog';
 import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
@@ -47,14 +49,10 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
   );
 }
 
-function WorldCard({
-  number,
-  title,
-  selected,
-  onPress,
-}: {
+function WorldCard({ number, title, missionCount, selected, onPress }: {
   number: number | null;
   title: string;
+  missionCount: number;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -65,8 +63,8 @@ function WorldCard({
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: 126,
-        minHeight: 104,
+        width: 132,
+        minHeight: 112,
         padding: spacing.sm,
         borderRadius: radius.lg,
         borderWidth: selected ? 2 : 1,
@@ -79,7 +77,7 @@ function WorldCard({
       <Text aria-hidden style={{ fontSize: 30 }}>{meta.icon}</Text>
       <View style={{ gap: 2 }}>
         <Text selectable style={{ color: selected ? colors.surfaceMuted : colors.inkMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 }}>
-          {number ? `WORLD ${number}` : 'A1 MAP'}
+          {number ? `WORLD ${number}` : 'A1 MAP'} · {missionCount}M
         </Text>
         <Text selectable numberOfLines={2} style={{ color: selected ? colors.surface : colors.ink, fontSize: typography.small, fontWeight: '900', lineHeight: 16 }}>
           {number ? meta.shortTitle : title}
@@ -97,8 +95,6 @@ function buildSelections(selectedKeys: ReadonlySet<string>): CurriculumSelection
     return itemIds.length ? [{ packageId: pkg.id, itemIds }] : [];
   });
 }
-
-const READY_ENTRY_COUNT = CURRICULUM_PACKAGES.reduce((total, pkg) => total + pkg.items.length, 0);
 
 export function CourseLibraryScreen() {
   const router = useRouter();
@@ -137,7 +133,7 @@ export function CourseLibraryScreen() {
     setResult(null);
   }
 
-  function toggleVisible(pkg: (typeof packages)[number], select: boolean) {
+  function toggleVisible(pkg: CurriculumPackage, select: boolean) {
     setSelectedKeys((current) => {
       const next = new Set(current);
       for (const item of pkg.items) {
@@ -190,17 +186,23 @@ export function CourseLibraryScreen() {
         <Surface style={{ padding: spacing.lg, gap: spacing.md, backgroundColor: colors.ink }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
             <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', letterSpacing: 1 }}>A1 ADVENTURE</Text>
+              <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', letterSpacing: 1 }}>A1 ADVENTURE · FULL COURSE</Text>
               <Text accessibilityRole="header" selectable style={{ color: colors.surface, fontSize: 32, lineHeight: 36, fontWeight: '900' }}>
                 Build your English deck
               </Text>
               <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 20 }}>
-                Explore six worlds, collect useful words and phrases, then train them in Swipe.
+                Explore 6 worlds and 45 missions. Collect the exact A1 words and chunks you want, then train them in Swipe.
               </Text>
             </View>
             <View style={{ width: 66, height: 66, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
               <Text aria-hidden style={{ fontSize: 34 }}>🎒</Text>
             </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            <Chip>{A1_CATALOG_STATS.missionCount} missions</Chip>
+            <Chip>{A1_CATALOG_STATS.groupCount} skill sets</Chip>
+            <Chip>{A1_CATALOG_STATS.distinctMemberCount} source forms</Chip>
           </View>
 
           <View style={{ gap: 7 }}>
@@ -215,9 +217,9 @@ export function CourseLibraryScreen() {
         </Surface>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Chip>A1</Chip>
+          <Chip>A1 · LOCKED</Chip>
           <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small }}>
-            {READY_ENTRY_COUNT} app-ready entries · full locked A1 sync in progress
+            {A1_CATALOG_STATS.rawMemberCount} reviewed source rows · number/date ranges expanded for study
           </Text>
           <Chip>EN → AR</Chip>
         </View>
@@ -231,9 +233,9 @@ export function CourseLibraryScreen() {
             <Text aria-hidden style={{ fontSize: 24 }}>✨</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.md }}>
-            <WorldCard number={null} title="All worlds" selected={unitId === 'ALL'} onPress={() => chooseUnit('ALL')} />
+            <WorldCard number={null} title="All worlds" missionCount={A1_CATALOG_STATS.missionCount} selected={unitId === 'ALL'} onPress={() => chooseUnit('ALL')} />
             {CURRICULUM_UNITS.map((unit) => (
-              <WorldCard key={unit.id} number={unit.number} title={unit.title} selected={unitId === unit.id} onPress={() => chooseUnit(unit.id)} />
+              <WorldCard key={unit.id} number={unit.number} title={unit.title} missionCount={unit.missionCount} selected={unitId === unit.id} onPress={() => chooseUnit(unit.id)} />
             ))}
           </ScrollView>
         </View>
@@ -245,18 +247,9 @@ export function CourseLibraryScreen() {
             setQuery(value);
             if (value.trim()) setExpandedPackageId(null);
           }}
-          placeholder="🔎  Find a word, phrase, or Arabic meaning…"
+          placeholder="🔎  Find a mission, word, phrase, or Arabic meaning…"
           placeholderTextColor={colors.inkMuted}
-          style={{
-            minHeight: 50,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: radius.lg,
-            backgroundColor: colors.surface,
-            paddingHorizontal: spacing.md,
-            color: colors.ink,
-            fontSize: typography.label,
-          }}
+          style={{ minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink, fontSize: typography.label }}
         />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -270,7 +263,7 @@ export function CourseLibraryScreen() {
               />
             ))}
           </View>
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{visibleEntryCount} loot</Text>
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{visibleEntryCount} rewards</Text>
         </View>
 
         {error ? (
@@ -293,7 +286,7 @@ export function CourseLibraryScreen() {
             {result.failedItems.length ? <Text selectable style={{ color: colors.danger }}>Could not add: {result.failedItems.join(', ')}</Text> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               <Pressable accessibilityRole="button" onPress={() => router.push('/bank')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Open deck →</Text>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Open Bank →</Text>
               </Pressable>
               <Pressable accessibilityRole="button" onPress={() => router.push('/')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
                 <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Train in Swipe →</Text>
@@ -305,16 +298,15 @@ export function CourseLibraryScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
           <View style={{ flex: 1 }}>
             <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900' }}>Missions</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Open a mission and collect the cards you want.</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Open a mission, inspect its skill sets, and pack the rewards you want.</Text>
           </View>
           <Chip>{packages.length}</Chip>
         </View>
 
-        {packages.length ? packages.map((pkg, index) => (
+        {packages.length ? packages.map((pkg) => (
           <CoursePackageCard
             key={pkg.id}
             pkg={pkg}
-            missionNumber={index + 1}
             expanded={expandedPackageId === pkg.id}
             selectedKeys={selectedKeys}
             onToggleExpanded={() => setExpandedPackageId((current) => current === pkg.id ? null : pkg.id)}
@@ -330,20 +322,7 @@ export function CourseLibraryScreen() {
       </ScrollView>
 
       {selectedCount ? (
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            backgroundColor: colors.surface,
-            paddingHorizontal: spacing.md,
-            paddingTop: spacing.sm,
-            paddingBottom: spacing.md,
-          }}
-        >
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md }}>
           <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <View style={{ minWidth: 110 }}>
               <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>🎒 {selectedCount} cards</Text>
