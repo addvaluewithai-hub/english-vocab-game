@@ -23,6 +23,6 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   // shared connection keeps transactional behavior in hosted previews.
   installWebExclusiveTransactionFallback(db);
   await migrateDatabase(db);
-  await ensureDefaultLanguagePair(db);
   await ensureDemoSeedIfEmpty(db);
+  await ensureDefaultLanguagePair(db);
 }
