@@ -1,8 +1,9 @@
 export const IMPORT_POLICY = {
   text: {
-    maxCharacters: 12_000,
+    maxCharacters: 120_000,
     maxCandidates: 24,
-    maxListCandidates: 60,
+    maxListCandidates: 2_000,
+    aiListBatchSize: 40,
   },
   pdf: {
     maxBytes: 25 * 1024 * 1024,
