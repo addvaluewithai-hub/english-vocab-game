@@ -108,7 +108,7 @@ export function VocabularyFormScreen() {
   }
 
   if (pairLoading || loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator /></View>;
-  if (!pair) return <EmptyState title="Choose your languages" body="Set a language pair before adding vocabulary." />;
+  if (!pair) return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch." />;
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
@@ -117,13 +117,26 @@ export function VocabularyFormScreen() {
         <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pair.targetLanguageName} → {pair.referenceLanguageName}</Text>
       </View>
       {!cardId ? (
-        <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
-          <View style={{ gap: spacing.xs }}>
-            <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse conversation-based A1 packages, filter by topic or content type, and add selected vocabulary and phrases to this same bank.</Text>
-          </View>
-          <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
-        </Surface>
+        <View style={{ gap: spacing.md }}>
+          <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.ink }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+              <Text aria-hidden style={{ fontSize: 31 }}>📸</Text>
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Text selectable style={{ color: colors.surface, fontSize: 19, fontWeight: '900' }}>Import from an image</Text>
+                <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Take a photo or choose screenshots. AI extracts the English, translates it, and writes example sentences for review.</Text>
+              </View>
+            </View>
+            <ActionButton label="Import image with AI" onPress={() => router.push('/image-import')} />
+          </Surface>
+
+          <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+            <View style={{ gap: spacing.xs }}>
+              <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse A1 missions, collect useful vocabulary and phrases, then train them in the same Bank.</Text>
+            </View>
+            <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
+          </Surface>
+        </View>
       ) : null}
       {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger }}>{error}</Text></Surface> : null}
       <Field label="Term or phrase" value={term} onChangeText={setTerm} placeholder="e.g. look forward to" />
