@@ -81,7 +81,7 @@ export function CoursePackageCard({ pkg, selectedKeys, onToggleItem, onToggleVis
                 <Text style={{ color: colors.surface, fontSize: 14, fontWeight: '900' }}>{selected ? '✓' : ''}</Text>
               </View>
               <View style={{ flex: 1, gap: 3 }}>
-                <Text selectable style={{ color: colors.ink, fontSize: typography.body, fontWeight: '750' }}>{item.term}</Text>
+                <Text selectable style={{ color: colors.ink, fontSize: typography.body, fontWeight: '700' }}>{item.term}</Text>
                 <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, writingDirection: 'rtl', textAlign: 'left' }}>{item.translation}</Text>
               </View>
               <Chip>{item.kind === 'PHRASE' ? 'Phrase' : 'Word'}</Chip>
