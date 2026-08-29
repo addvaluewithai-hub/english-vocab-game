@@ -6,9 +6,32 @@ export interface AuthUser {
   name: string | null;
 }
 
-type AuthClient = ReturnType<typeof createAuthClient>;
+type NeonAuthResult = {
+  data?: {
+    user?: {
+      id: string;
+      email: string;
+      name?: string | null;
+    } | null;
+  } | null;
+  error?: {
+    message?: string | null;
+  } | null;
+};
 
-let authClient: AuthClient | null = null;
+type NeonAuthClient = {
+  signIn: {
+    email: (input: { email: string; password: string }) => Promise<NeonAuthResult>;
+  };
+  signUp: {
+    email: (input: { email: string; password: string; name: string }) => Promise<NeonAuthResult>;
+  };
+  getSession: () => Promise<NeonAuthResult>;
+  getJWTToken?: () => Promise<string | null | undefined>;
+  signOut: () => Promise<unknown>;
+};
+
+let authClient: NeonAuthClient | null = null;
 let authClientUrl: string | null = null;
 
 function configuredAuthUrl(): string | null {
@@ -19,11 +42,14 @@ export function isNeonAuthConfigured(): boolean {
   return Boolean(configuredAuthUrl());
 }
 
-function getAuthClient(): AuthClient {
+function getAuthClient(): NeonAuthClient {
   const url = configuredAuthUrl();
   if (!url) throw new Error('Cloud account services are not configured for this build.');
   if (!authClient || authClientUrl !== url) {
-    authClient = createAuthClient(url);
+    // createAuthClient supports multiple adapter shapes. This application deliberately uses
+    // the Neon Auth / Better Auth surface exposed by a Neon Auth URL, so narrow to only the
+    // small contract exercised by the app rather than leaking the library's adapter union.
+    authClient = createAuthClient(url) as unknown as NeonAuthClient;
     authClientUrl = url;
   }
   return authClient;
@@ -41,6 +67,10 @@ function userFromNeon(user: {
   };
 }
 
+function authError(result: NeonAuthResult, fallback: string): Error {
+  return new Error(result.error?.message?.trim() || fallback);
+}
+
 export async function signInWithEmail(
   email: string,
   password: string,
@@ -49,7 +79,7 @@ export async function signInWithEmail(
     email: email.trim(),
     password,
   });
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throw authError(result, 'Authentication failed.');
   if (!result.data?.user) {
     throw new Error('Neon Auth did not return a user after sign in.');
   }
@@ -68,7 +98,7 @@ export async function signUpWithEmail(
     password,
     name: cleanName,
   });
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throw authError(result, 'Account creation failed.');
   if (!result.data?.user) {
     throw new Error('Neon Auth did not return a user after sign up.');
   }
@@ -84,9 +114,7 @@ export async function restoreAuthUser(): Promise<AuthUser | null> {
 
 export async function getNeonJwtToken(): Promise<string> {
   if (!isNeonAuthConfigured()) throw new Error('Cloud account services are not configured for this build.');
-  const auth = getAuthClient() as AuthClient & {
-    getJWTToken?: () => Promise<string | null | undefined>;
-  };
+  const auth = getAuthClient();
   if (!auth.getJWTToken) throw new Error('This Neon Auth client cannot provide a data-access token.');
   const token = await auth.getJWTToken();
   if (!token) throw new Error('Sign in to use cloud-assisted imports.');
