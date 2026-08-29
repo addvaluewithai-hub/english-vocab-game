@@ -1,11 +1,11 @@
+import type { ReactNode } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
-import type { ReviewGrade, StudyCard } from '@/domain/types';
+import type { ReviewGrade } from '@/domain/types';
 import { colors, motion, spacing, typography } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
-import { VocabularyCard } from './vocabulary-card';
 
 async function hapticForGrade(grade: ReviewGrade) {
   if (process.env.EXPO_OS !== 'ios') return;
@@ -17,16 +17,12 @@ async function hapticForGrade(grade: ReviewGrade) {
 }
 
 export function SwipeGradeCard({
-  card,
-  revealed,
+  children,
   disabled,
-  onReveal,
   onGrade,
 }: {
-  card: StudyCard;
-  revealed: boolean;
+  children: ReactNode;
   disabled: boolean;
-  onReveal: () => void;
   onGrade: (grade: ReviewGrade) => void;
 }) {
   const translateX = useSharedValue(0);
@@ -85,7 +81,7 @@ export function SwipeGradeCard({
     <View style={{ width: '100%' }}>
       <GestureDetector gesture={pan}>
         <Animated.View style={cardStyle}>
-          <VocabularyCard card={card} revealed={revealed} onReveal={onReveal} />
+          {children}
           <Animated.View
             pointerEvents="none"
             style={[
