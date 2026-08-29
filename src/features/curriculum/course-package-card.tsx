@@ -5,8 +5,18 @@ import type { CurriculumPackage } from '@/curriculum/catalog';
 import { curriculumSelectionKey } from '@/curriculum/catalog';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
+const UNIT_ICONS: Record<number, string> = {
+  1: '👋',
+  2: '⏰',
+  3: '🏠',
+  4: '🧭',
+  5: '🛍️',
+  6: '💬',
+};
+
 interface CoursePackageCardProps {
   pkg: CurriculumPackage;
+  missionNumber: number;
   expanded: boolean;
   selectedKeys: ReadonlySet<string>;
   onToggleExpanded: () => void;
@@ -16,6 +26,7 @@ interface CoursePackageCardProps {
 
 export function CoursePackageCard({
   pkg,
+  missionNumber,
   expanded,
   selectedKeys,
   onToggleExpanded,
@@ -25,55 +36,79 @@ export function CoursePackageCard({
   const [showDialogue, setShowDialogue] = useState(false);
   const selectedCount = pkg.items.filter((item) => selectedKeys.has(curriculumSelectionKey(pkg.id, item.id))).length;
   const allSelected = pkg.items.length > 0 && selectedCount === pkg.items.length;
+  const unitIcon = UNIT_ICONS[pkg.unitNumber] ?? '⭐';
 
   return (
-    <Surface style={{ overflow: 'hidden' }}>
+    <Surface style={{ overflow: 'hidden', borderWidth: expanded ? 2 : 1, borderColor: expanded ? colors.ink : colors.border }}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${expanded ? 'Collapse' : 'Open'} ${pkg.title}`}
+        accessibilityLabel={`${expanded ? 'Collapse' : 'Open'} mission ${pkg.title}`}
         onPress={onToggleExpanded}
         style={({ pressed }) => ({
           paddingHorizontal: spacing.md,
-          paddingVertical: 14,
+          paddingVertical: spacing.md,
           opacity: pressed ? 0.72 : 1,
         })}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <View
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: radius.md,
-              backgroundColor: colors.surfaceMuted,
+              width: 54,
+              height: 54,
+              borderRadius: 20,
+              backgroundColor: expanded ? colors.ink : colors.surfaceMuted,
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 1,
             }}
           >
-            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>U{pkg.unitNumber}</Text>
+            <Text aria-hidden style={{ fontSize: 23 }}>{unitIcon}</Text>
+            <Text selectable style={{ color: expanded ? colors.surfaceMuted : colors.inkMuted, fontSize: 8, fontWeight: '900', letterSpacing: 0.7 }}>
+              M{missionNumber}
+            </Text>
           </View>
 
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text selectable numberOfLines={2} style={{ color: colors.ink, fontSize: typography.body, fontWeight: '800' }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text selectable numberOfLines={2} style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900', lineHeight: 21 }}>
               {pkg.title}
             </Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>
-              {pkg.items.length} {pkg.items.length === 1 ? 'entry' : 'entries'}{selectedCount ? ` · ${selectedCount} selected` : ''}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>
+                World {pkg.unitNumber}
+              </Text>
+              <Text aria-hidden style={{ color: colors.border }}>•</Text>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>
+                🎴 {pkg.items.length} cards
+              </Text>
+              {selectedCount ? (
+                <Text selectable style={{ color: colors.success, fontSize: typography.small, fontWeight: '900' }}>
+                  ✓ {selectedCount} packed
+                </Text>
+              ) : null}
+            </View>
           </View>
 
-          <Text aria-hidden style={{ color: colors.inkMuted, fontSize: 24, lineHeight: 24 }}>{expanded ? '⌄' : '›'}</Text>
+          <View style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' }}>
+            <Text aria-hidden style={{ color: colors.ink, fontSize: 22, lineHeight: 22 }}>{expanded ? '−' : '+'}</Text>
+          </View>
         </View>
       </Pressable>
 
       {expanded ? (
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, gap: spacing.md }}>
-          <View style={{ gap: 4 }}>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '800' }}>
-              {pkg.unitTitle} · {pkg.unitTitleAr}
-            </Text>
+          <View style={{ gap: 5 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small, fontWeight: '800' }}>
+                {pkg.unitTitle}
+              </Text>
+              <Chip>Reward · {pkg.items.length}</Chip>
+            </View>
             <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>
               {pkg.description}
+            </Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'left' }}>
+              {pkg.unitTitleAr}
             </Text>
           </View>
 
@@ -82,15 +117,15 @@ export function CoursePackageCard({
               accessibilityRole="button"
               onPress={() => onToggleVisible(pkg, !allSelected)}
               style={({ pressed }) => ({
-                paddingHorizontal: 12,
-                paddingVertical: 8,
+                paddingHorizontal: 14,
+                paddingVertical: 9,
                 borderRadius: radius.pill,
-                backgroundColor: allSelected ? colors.accent : colors.surfaceMuted,
+                backgroundColor: allSelected ? colors.success : colors.ink,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text selectable style={{ color: allSelected ? colors.surface : colors.ink, fontSize: typography.small, fontWeight: '800' }}>
-                {allSelected ? 'Clear topic' : 'Select all'}
+              <Text selectable style={{ color: colors.surface, fontSize: typography.small, fontWeight: '900' }}>
+                {allSelected ? '✓ All packed' : '🎒 Pack all'}
               </Text>
             </Pressable>
 
@@ -102,25 +137,28 @@ export function CoursePackageCard({
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   borderRadius: radius.pill,
+                  borderWidth: 1,
+                  borderColor: colors.border,
                   opacity: pressed ? 0.7 : 1,
                 })}
               >
                 <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '800' }}>
-                  {showDialogue ? 'Hide dialogue' : 'Preview dialogue'}
+                  {showDialogue ? 'Hide scene' : '💬 Preview scene'}
                 </Text>
               </Pressable>
             ) : null}
           </View>
 
           {showDialogue ? (
-            <View style={{ gap: 5, backgroundColor: colors.surfaceMuted, padding: spacing.sm, borderRadius: radius.md }}>
+            <View style={{ gap: 6, backgroundColor: colors.surfaceMuted, padding: spacing.md, borderRadius: radius.lg }}>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1 }}>MISSION SCENE</Text>
               {pkg.dialogue.map((line) => (
                 <Text key={line} selectable style={{ color: colors.ink, fontSize: typography.label, lineHeight: 20 }}>{line}</Text>
               ))}
             </View>
           ) : null}
 
-          <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, overflow: 'hidden' }}>
+          <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' }}>
             {pkg.items.map((item, index) => {
               const key = curriculumSelectionKey(pkg.id, item.id);
               const selected = selectedKeys.has(key);
@@ -135,38 +173,40 @@ export function CoursePackageCard({
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: spacing.sm,
-                    minHeight: 52,
-                    paddingHorizontal: spacing.sm,
+                    minHeight: 56,
+                    paddingHorizontal: spacing.md,
                     paddingVertical: 8,
                     borderTopWidth: index === 0 ? 0 : 1,
                     borderTopColor: colors.border,
-                    backgroundColor: selected ? colors.surfaceMuted : colors.surface,
+                    backgroundColor: selected ? colors.successSurface : colors.surface,
                     opacity: pressed ? 0.72 : 1,
                   })}
                 >
                   <View
                     style={{
-                      width: 21,
-                      height: 21,
-                      borderRadius: 7,
+                      width: 27,
+                      height: 27,
+                      borderRadius: 10,
                       borderWidth: 2,
-                      borderColor: selected ? colors.accent : colors.border,
-                      backgroundColor: selected ? colors.accent : colors.surface,
+                      borderColor: selected ? colors.success : colors.border,
+                      backgroundColor: selected ? colors.success : colors.surface,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ color: colors.surface, fontSize: 12, fontWeight: '900' }}>{selected ? '✓' : ''}</Text>
+                    <Text style={{ color: selected ? colors.surface : colors.inkMuted, fontSize: 15, fontWeight: '900' }}>{selected ? '✓' : '+'}</Text>
                   </View>
 
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '700' }}>{item.term}</Text>
+                    <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '800' }}>{item.term}</Text>
                     <Text selectable numberOfLines={1} style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'left' }}>
                       {item.translation}
                     </Text>
                   </View>
 
-                  <Chip>{item.kind === 'PHRASE' ? 'Phrase' : 'Word'}</Chip>
+                  <Text selectable style={{ color: colors.inkMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>
+                    {item.kind === 'PHRASE' ? 'PHRASE' : 'WORD'}
+                  </Text>
                 </Pressable>
               );
             })}
