@@ -58,7 +58,7 @@ function WorldCard({
   selected: boolean;
   onPress: () => void;
 }) {
-  const meta = number ? WORLD_META[number] : { icon: '🗺️', shortTitle: title };
+  const meta = number ? (WORLD_META[number] ?? { icon: '⭐', shortTitle: title }) : { icon: '🗺️', shortTitle: title };
   return (
     <Pressable
       accessibilityRole="button"
