@@ -4,7 +4,7 @@ This document defines the MVP operating contract for smart imports. The goal is 
 
 ## Supported MVP sources
 
-- Pasted vocabulary lists: parsed locally; no AI call is required.
+- Pasted vocabulary lists: flexible local parsing supports words, phrases, optional meanings, common separators, and simple numbered/bulleted forms. Lists whose meanings are already supplied can stay fully local; signed-in users may use AI to fill missing translation/definition/part-of-speech/level/example data before staging.
 - Pasted prose: Gemini/Gemma text router, bounded to a curated candidate set.
 - Text PDFs: direct-to-object-storage upload followed by server-side Gemini URL-context analysis with page provenance.
 - Public YouTube videos: server-side Gemini video analysis with timestamped spoken-context provenance.
@@ -16,7 +16,8 @@ URL article and photo/OCR imports remain optional P2 work. Generated visual enri
 `src/imports/policy.ts` is the implementation source for import limits. At the current MVP gate:
 
 - pasted text: 12,000 characters;
-- explicit vocabulary list: at most 60 candidates;
+- vocabulary list: at most 60 candidates per import;
+- signed-in vocabulary-list enrichment: processed in small batches of at most 30 items, with completed local work checkpointed between batches;
 - AI-curated pasted prose: at most 24 candidates;
 - PDF: at most 25 MiB and 40 candidates;
 - YouTube: URL at most 2,048 characters and 32 candidates;
@@ -74,8 +75,8 @@ Do not include raw pasted text, PDF contents, transcript/spoken text, vocabulary
 
 Provider output is a proposal. It is normalized and validated, ranked for the learner, and then sent through import staging. No smart-import candidate enters the canonical vocabulary bank without user approval.
 
-Exact existing senses may be selected to preserve a new source occurrence without creating a duplicate card. Mastered vocabulary may be deprioritized but its new source provenance is not silently erased.
+AI-generated study examples for a bare vocabulary list are enrichment, not source evidence: they may appear on the card but must not be stored as if they were an original SourceOccurrence sentence. Exact existing senses may be selected to preserve a real new source occurrence without creating a duplicate card. Mastered vocabulary may be deprioritized but its new source provenance is not silently erased.
 
 ## Provider outage behavior
 
-AI outages must never block manual vocabulary creation, local vocabulary-list import, launching the app, or studying already-local cards. The Gemini/Gemma router falls through only on retryable transient/provider failures; clear auth/validation errors stop immediately rather than burning the full model chain.
+AI outages must never block manual vocabulary creation, local vocabulary-list import when meanings are already supplied, launching the app, or studying already-local cards. The Gemini/Gemma router falls through only on retryable transient/provider failures; clear auth/validation errors stop immediately rather than burning the full model chain.
