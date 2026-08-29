@@ -116,6 +116,15 @@ export function VocabularyFormScreen() {
         <Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>{cardId ? 'Edit vocabulary' : 'Add vocabulary'}</Text>
         <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pair.targetLanguageName} → {pair.referenceLanguageName}</Text>
       </View>
+      {!cardId ? (
+        <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+          <View style={{ gap: spacing.xs }}>
+            <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse conversation-based A1 packages, filter by topic or content type, and add selected vocabulary and phrases to this same bank.</Text>
+          </View>
+          <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
+        </Surface>
+      ) : null}
       {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger }}>{error}</Text></Surface> : null}
       <Field label="Term or phrase" value={term} onChangeText={setTerm} placeholder="e.g. look forward to" />
       {!cardId ? (
