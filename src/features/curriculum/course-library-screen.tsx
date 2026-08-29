@@ -142,8 +142,8 @@ export function CourseLibraryScreen() {
 
         <Surface style={{ padding: spacing.md, gap: 7, backgroundColor: colors.surfaceMuted }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text selectable style={{ flex: 1, color: colors.ink, fontSize: typography.label, fontWeight: '850' }}>Reviewed app set</Text>
-            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '850' }}>{READY_ENTRY_COUNT} entries</Text>
+            <Text selectable style={{ flex: 1, color: colors.ink, fontSize: typography.label, fontWeight: '800' }}>Reviewed app set</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '800' }}>{READY_ENTRY_COUNT} entries</Text>
           </View>
           <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18 }}>
             This preview is a curated A1 starter set, not the complete A1 lexical inventory. The full curriculum export is being prepared from the locked course source.
@@ -213,16 +213,16 @@ export function CourseLibraryScreen() {
 
         {result ? (
           <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.successSurface }}>
-            <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.success, fontSize: typography.label, fontWeight: '850' }}>
+            <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.success, fontSize: typography.label, fontWeight: '800' }}>
               {result.added} added · {result.reused} already linked · {result.collectionsCreated} topic collections created
             </Text>
             {result.failedItems.length ? <Text selectable style={{ color: colors.danger }}>Could not add: {result.failedItems.join(', ')}</Text> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               <Pressable accessibilityRole="button" onPress={() => router.push('/bank')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '850' }}>Open Bank →</Text>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Open Bank →</Text>
               </Pressable>
               <Pressable accessibilityRole="button" onPress={() => router.push('/')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '850' }}>Start Swipe →</Text>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Start Swipe →</Text>
               </Pressable>
             </View>
           </Surface>
