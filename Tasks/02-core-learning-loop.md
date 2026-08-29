@@ -121,3 +121,32 @@ Goal: prove that studying vocabulary through a fast flip-and-swipe loop is usefu
 - Core loop is fully operable with screen reader and buttons only.
 - No known layout blocker exists on representative iOS and Android phone sizes.
 - Interaction does not noticeably stall between graded cards.
+
+---
+
+## T047 — Bounded swipe feed and large-bank queue policy
+
+**Priority:** P0  
+**Dependencies:** T006, T010, T024
+
+### Scope
+- Preserve the Tinder-like one-card swipe as the primary study experience even when a learner has a very large vocabulary bank.
+- Bound one session to a short initial batch rather than treating every due/new card as one endless queue.
+- Prioritize due/learning reviews before unseen vocabulary.
+- Limit unseen/new cards per session so imports or a large bank cannot flood the learner.
+- Keep the existing one-retry-per-forgotten-card behavior.
+- On completion, explicitly offer another batch when more study-ready cards remain; never auto-loop the whole bank.
+
+### Current defaults
+- Maximum 20 initial cards per session.
+- Maximum 10 unseen/new cards per session.
+- Forgotten-card retries may make the final swipe count slightly larger than the initial batch.
+
+These are safe defaults, not a permanent claim that every learner must use the same numbers. Later preference/adaptation work may tune them without changing the bounded-session invariant.
+
+### Acceptance criteria
+- A bank containing thousands of new cards creates a short deterministic session, not a thousands-card queue.
+- Due reviews are selected before new cards.
+- The initial session never exceeds the configured session cap.
+- Completion reports that more cards are available and requires an explicit learner action to start another batch.
+- Existing retry, review-event, FSRS, offline, and route-transition behavior remains intact.
