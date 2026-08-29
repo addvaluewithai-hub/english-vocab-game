@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -13,6 +13,8 @@ import {
   type CurriculumKindFilter,
   type CurriculumPackage,
 } from '@/curriculum/catalog';
+import { CatalogRepository } from '@/data/catalog';
+import { asSqlDatabase } from '@/data/database';
 import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { CoursePackageCard } from './course-package-card';
@@ -105,14 +107,45 @@ export function CourseLibraryScreen() {
   const [query, setQuery] = useState('');
   const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
+  const [usedPackageIds, setUsedPackageIds] = useState<Set<string>>(() => new Set());
+  const [showCompleted, setShowCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<CurriculumImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function refreshUsedPackages(languagePairId: string) {
+    const collections = await new CatalogRepository(asSqlDatabase(sqlite)).listCollections(languagePairId);
+    const next = new Set<string>();
+    for (const pkg of CURRICULUM_PACKAGES) {
+      const marker = `· curated from English Course · ${pkg.id}`;
+      if (collections.some((collection) => collection.cardCount > 0 && collection.description?.includes(marker))) {
+        next.add(pkg.id);
+      }
+    }
+    setUsedPackageIds(next);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!pair) return () => { cancelled = true; };
+    void new CatalogRepository(asSqlDatabase(sqlite)).listCollections(pair.id).then((collections) => {
+      if (cancelled) return;
+      const next = new Set<string>();
+      for (const pkg of CURRICULUM_PACKAGES) {
+        const marker = `· curated from English Course · ${pkg.id}`;
+        if (collections.some((collection) => collection.cardCount > 0 && collection.description?.includes(marker))) next.add(pkg.id);
+      }
+      setUsedPackageIds(next);
+    });
+    return () => { cancelled = true; };
+  }, [pair, sqlite]);
 
   const packages = useMemo(
     () => filterCurriculumPackages({ level: 'A1', unitId, kind, query }),
     [kind, query, unitId],
   );
+  const newPackages = packages.filter((pkg) => !usedPackageIds.has(pkg.id));
+  const completedPackages = packages.filter((pkg) => usedPackageIds.has(pkg.id));
   const selectedCount = selectedKeys.size;
   const visibleEntryCount = packages.reduce((total, pkg) => total + pkg.items.length, 0);
   const backpackProgress = visibleEntryCount ? Math.min(100, Math.round((selectedCount / visibleEntryCount) * 100)) : 0;
@@ -152,8 +185,10 @@ export function CourseLibraryScreen() {
     setError(null);
     setResult(null);
     try {
-      const imported = await new CurriculumBankService(sqlite).addSelections(pair.id, buildSelections(selectedKeys));
+      const selections = buildSelections(selectedKeys);
+      const imported = await new CurriculumBankService(sqlite).addSelections(pair.id, selections);
       setResult(imported);
+      await refreshUsedPackages(pair.id);
       if (!imported.failedItems.length) setSelectedKeys(new Set());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not add the selected course content.');
@@ -170,10 +205,10 @@ export function CourseLibraryScreen() {
     );
   }
   if (!pair) {
-    return <EmptyState title="Choose your languages" body="Set a language pair before starting the course adventure." action={<ActionButton label="Open settings" onPress={() => router.push('/settings')} />} />;
+    return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch. Reopen this screen if setup was interrupted." />;
   }
   if (pair.targetLanguageCode !== 'en' || pair.referenceLanguageCode !== 'ar') {
-    return <EmptyState title="English → Arabic for now" body="The reviewed A1 course catalog currently targets Arabic-speaking English learners. Change the active pair, or use manual add for another language pair." action={<ActionButton label="Open language settings" onPress={() => router.push('/settings')} />} />;
+    return <EmptyState title="English → Arabic course" body="This A1 course is currently built for Arabic-speaking English learners. You can change languages later from Settings." action={<ActionButton label="Use English → Arabic" onPress={() => router.push('/settings')} />} />;
   }
 
   return (
@@ -191,7 +226,7 @@ export function CourseLibraryScreen() {
                 Build your English deck
               </Text>
               <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 20 }}>
-                Explore 6 worlds and 45 missions. Collect the exact A1 words and chunks you want, then train them in Swipe.
+                Explore 6 worlds and 45 missions. New missions stay up front; missions you collect move to Completed.
               </Text>
             </View>
             <View style={{ width: 66, height: 66, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
@@ -219,7 +254,7 @@ export function CourseLibraryScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Chip>A1 · LOCKED</Chip>
           <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small }}>
-            {A1_CATALOG_STATS.rawMemberCount} reviewed source rows · number/date ranges expanded for study
+            {A1_CATALOG_STATS.rawMemberCount} reviewed source rows · {usedPackageIds.size} missions used
           </Text>
           <Chip>EN → AR</Chip>
         </View>
@@ -297,13 +332,13 @@ export function CourseLibraryScreen() {
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
           <View style={{ flex: 1 }}>
-            <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900' }}>Missions</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Open a mission, inspect its skill sets, and pack the rewards you want.</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900' }}>New missions</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Only missions you have not collected from yet.</Text>
           </View>
-          <Chip>{packages.length}</Chip>
+          <Chip>{newPackages.length}</Chip>
         </View>
 
-        {packages.length ? packages.map((pkg) => (
+        {newPackages.length ? newPackages.map((pkg) => (
           <CoursePackageCard
             key={pkg.id}
             pkg={pkg}
@@ -315,10 +350,48 @@ export function CourseLibraryScreen() {
           />
         )) : (
           <Surface style={{ padding: spacing.lg }}>
-            <Text aria-hidden style={{ textAlign: 'center', fontSize: 34 }}>🧩</Text>
-            <Text selectable style={{ color: colors.inkMuted, textAlign: 'center', marginTop: spacing.sm }}>No mission matches these filters.</Text>
+            <Text aria-hidden style={{ textAlign: 'center', fontSize: 34 }}>🎉</Text>
+            <Text selectable style={{ color: colors.inkMuted, textAlign: 'center', marginTop: spacing.sm }}>No unused mission matches these filters.</Text>
           </Surface>
         )}
+
+        {completedPackages.length ? (
+          <View style={{ gap: spacing.sm }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showCompleted }}
+              onPress={() => setShowCompleted((value) => !value)}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.lg,
+                backgroundColor: colors.surfaceMuted,
+                opacity: pressed ? 0.72 : 1,
+              })}
+            >
+              <View style={{ flex: 1 }}>
+                <Text selectable style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900' }}>✓ Completed missions</Text>
+                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{completedPackages.length} used in your Bank · tap to {showCompleted ? 'hide' : 'show'}</Text>
+              </View>
+              <Text aria-hidden style={{ color: colors.ink, fontSize: 22 }}>{showCompleted ? '−' : '+'}</Text>
+            </Pressable>
+
+            {showCompleted ? completedPackages.map((pkg) => (
+              <CoursePackageCard
+                key={`completed-${pkg.id}`}
+                pkg={pkg}
+                expanded={expandedPackageId === pkg.id}
+                selectedKeys={selectedKeys}
+                onToggleExpanded={() => setExpandedPackageId((current) => current === pkg.id ? null : pkg.id)}
+                onToggleItem={toggleItem}
+                onToggleVisible={toggleVisible}
+              />
+            )) : null}
+          </View>
+        ) : null}
       </ScrollView>
 
       {selectedCount ? (
