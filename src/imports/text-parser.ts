@@ -5,6 +5,13 @@ import { isLearnerLevel, type LearnerLevel } from './ranking';
 export const MAX_PASTED_TEXT_CHARS = IMPORT_POLICY.text.maxCharacters;
 export const MAX_TEXT_CANDIDATES = IMPORT_POLICY.text.maxCandidates;
 export const MAX_LIST_CANDIDATES = IMPORT_POLICY.text.maxListCandidates;
+export const AI_LIST_BATCH_SIZE = IMPORT_POLICY.text.aiListBatchSize;
+
+export interface ParsedVocabularyListItem {
+  itemKey: string;
+  term: string;
+  translation: string | null;
+}
 
 function normalizeWhitespace(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -32,58 +39,102 @@ function splitListLine(line: string): [string, string] | null {
     if (!match || match.index <= 0) continue;
     const left = normalizeWhitespace(cleaned.slice(0, match.index));
     const right = normalizeWhitespace(cleaned.slice(match.index + match[0].length));
-    if (!left || !right || left.length > 100 || right.length > 240) continue;
+    if (!left || !right || left.length > 120 || right.length > 300) continue;
     return [left, right];
   }
   return null;
+}
+
+function looksLikeTermOnly(value: string): boolean {
+  const cleaned = normalizeWhitespace(stripListPrefix(value));
+  if (!cleaned || cleaned.length > 120) return false;
+  if (/[.!?](?:\s|$)/.test(cleaned)) return false;
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length > 12) return false;
+  return true;
+}
+
+function rawListSegments(text: string): string[] {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1) return lines;
+  const only = lines[0] ?? '';
+  if (!only) return [];
+  const commaParts = only.split(/\s*[;,]\s*/).map((part) => part.trim()).filter(Boolean);
+  if (commaParts.length >= 2 && commaParts.every(looksLikeTermOnly)) return commaParts;
+  return [only];
 }
 
 export function textSourceFingerprint(text: string): string {
   return `text:${stableHash(normalizeWhitespace(text).toLocaleLowerCase())}`;
 }
 
-export function parseExplicitVocabularyList(text: string): NormalizedImportCandidate[] {
-  const rawLines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (rawLines.length === 0) return [];
+export function parseLooseVocabularyList(text: string): ParsedVocabularyListItem[] {
+  const rawSegments = rawListSegments(text);
+  if (rawSegments.length === 0) return [];
 
-  const parsed = rawLines.map(splitListLine);
-  const matches = parsed.filter((item): item is [string, string] => item !== null);
-  const requiredMatches = rawLines.length === 1 ? 1 : Math.max(2, Math.ceil(rawLines.length * 0.6));
+  const parsed = rawSegments.map((segment) => {
+    const explicit = splitListLine(segment);
+    if (explicit) {
+      const [term, translation] = explicit;
+      return { term, translation };
+    }
+    if (!looksLikeTermOnly(segment)) return null;
+    return { term: normalizeWhitespace(stripListPrefix(segment)), translation: null };
+  });
+
+  const matches = parsed.filter((item): item is { term: string; translation: string | null } => item !== null);
+  const requiredMatches = rawSegments.length === 1 ? 1 : Math.max(2, Math.ceil(rawSegments.length * 0.7));
   if (matches.length < requiredMatches) return [];
 
   const seen = new Set<string>();
-  const candidates: NormalizedImportCandidate[] = [];
-  for (const [term, translation] of matches) {
-    const identity = `${term.toLocaleLowerCase()}\u0000${translation.toLocaleLowerCase()}`;
+  const items: ParsedVocabularyListItem[] = [];
+  for (const item of matches) {
+    const identity = `${item.term.toLocaleLowerCase()}\u0000${item.translation?.toLocaleLowerCase() ?? ''}`;
     if (seen.has(identity)) continue;
     seen.add(identity);
-    candidates.push({
-      candidateKey: `list-${stableHash(identity)}`,
-      term,
-      translation,
-      definition: null,
-      partOfSpeech: null,
-      context: null,
-      occurrence: {
-        sentence: null,
-        sourceUri: null,
-        locator: null,
-        pageNumber: null,
-        timestampSeconds: null,
-      },
-      confidence: 0.99,
-      usefulness: 0.75,
-      cefrLevel: null,
-      duplicateHint: null,
-      isVisuallyConcrete: null,
+    items.push({
+      itemKey: `list-input-${stableHash(identity)}`,
+      term: item.term,
+      translation: item.translation,
     });
-    if (candidates.length >= MAX_LIST_CANDIDATES) break;
+    if (items.length >= MAX_LIST_CANDIDATES) break;
   }
-  return candidates;
+  return items;
+}
+
+function knownListCandidate(item: ParsedVocabularyListItem): NormalizedImportCandidate | null {
+  if (!item.translation) return null;
+  const identity = `${item.term.toLocaleLowerCase()}\u0000${item.translation.toLocaleLowerCase()}`;
+  return {
+    candidateKey: `list-${stableHash(identity)}`,
+    term: item.term,
+    translation: item.translation,
+    definition: null,
+    partOfSpeech: null,
+    context: null,
+    occurrence: {
+      sentence: null,
+      sourceUri: null,
+      locator: null,
+      pageNumber: null,
+      timestampSeconds: null,
+    },
+    confidence: 0.99,
+    usefulness: 0.75,
+    cefrLevel: null,
+    duplicateHint: null,
+    isVisuallyConcrete: null,
+  };
+}
+
+export function parseExplicitVocabularyList(text: string): NormalizedImportCandidate[] {
+  return parseLooseVocabularyList(text)
+    .map(knownListCandidate)
+    .filter((candidate): candidate is NormalizedImportCandidate => candidate !== null);
 }
 
 export function isLikelyVocabularyList(text: string): boolean {
-  return parseExplicitVocabularyList(text).length > 0;
+  return parseLooseVocabularyList(text).length > 0;
 }
 
 export function validatePastedText(text: string): string {
@@ -107,7 +158,11 @@ export function normalizeAiTextCandidates(
     cefrLevel: LearnerLevel | null;
     isVisuallyConcrete: boolean | null;
   }>,
+  options: { contextIsSource?: boolean; maxCandidates?: number; candidatePrefix?: string } = {},
 ): NormalizedImportCandidate[] {
+  const contextIsSource = options.contextIsSource ?? true;
+  const maxCandidates = options.maxCandidates ?? MAX_TEXT_CANDIDATES;
+  const candidatePrefix = options.candidatePrefix ?? 'prose';
   const seen = new Set<string>();
   const output: NormalizedImportCandidate[] = [];
   for (const row of rows) {
@@ -119,14 +174,14 @@ export function normalizeAiTextCandidates(
     seen.add(identity);
     const context = row.context?.trim() || null;
     output.push({
-      candidateKey: `prose-${stableHash(identity)}`,
+      candidateKey: `${candidatePrefix}-${stableHash(identity)}`,
       term,
       translation,
       definition: row.definition?.trim() || null,
       partOfSpeech: row.partOfSpeech?.trim() || null,
       context,
       occurrence: {
-        sentence: context,
+        sentence: contextIsSource ? context : null,
         sourceUri: null,
         locator: null,
         pageNumber: null,
@@ -138,7 +193,7 @@ export function normalizeAiTextCandidates(
       duplicateHint: null,
       isVisuallyConcrete: row.isVisuallyConcrete,
     });
-    if (output.length >= MAX_TEXT_CANDIDATES) break;
+    if (output.length >= maxCandidates) break;
   }
   return output;
 }
