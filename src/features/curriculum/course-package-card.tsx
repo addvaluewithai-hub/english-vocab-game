@@ -160,7 +160,7 @@ export function CoursePackageCard({
                   </View>
 
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '750' }}>{item.term}</Text>
+                    <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '700' }}>{item.term}</Text>
                     <Text selectable numberOfLines={1} style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'left' }}>
                       {item.translation}
                     </Text>
