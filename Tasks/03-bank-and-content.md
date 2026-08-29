@@ -118,3 +118,40 @@ Goal: turn the prototype into a useful local vocabulary product where users can 
 - Switching language pairs does not leak cards from another pair into the study queue.
 - Existing data remains associated with the correct pair after settings changes.
 - Settings have safe defaults and survive restart.
+
+---
+
+## T048 — Curated built-in vocabulary/chunk feed
+
+**Priority:** P2  
+**Dependencies:** T012, T014, T024, T047
+
+### Product boundary
+This is **not** a course player or LMS. Built-in content is another trusted source of cards for the same swipe-first memory loop.
+
+The separate `addvaluewithai-hub/english-course` repository remains the curriculum/content source of truth. The vocabulary app may later consume a reviewed, versioned export containing only reusable card-oriented material such as:
+
+- CEFR level;
+- practical topic/category;
+- word, phrase, chunk, or collocation;
+- reviewed meaning/translation;
+- useful vetted context/example;
+- optional pronunciation-related metadata when it maps cleanly to the existing card model.
+
+Do not import lesson navigation, mastery stations, full assessments, teacher workflows, video production, or course completion logic into this app.
+
+### Scope
+- Define a small versioned content-pack contract for built-in vocabulary/chunks.
+- Allow a learner to browse/select a level or practical topic and activate a small number of curated cards.
+- Reuse an existing canonical Term/Sense/Card when the learner already knows the same sense from manual/imported content.
+- Treat built-in provenance like any other Source/SourceOccurrence rather than creating a second learning-state system.
+- Activated built-in cards enter the same bounded swipe queue and FSRS scheduling as personal vocabulary.
+
+### Acceptance criteria
+- Enabling a built-in pack never creates an alternative lesson/study player.
+- Activating curated content cannot flood one swipe session; T047 queue limits still apply.
+- Exact existing senses are reused rather than duplicated.
+- The app can identify built-in provenance without coupling runtime behavior to the `english-course` repository layout.
+- Only reviewed/versioned learner-facing content is eligible for export into the app.
+
+**Deliberate defer:** do not implement this until the current functional beta, smart-import path, and bounded swipe feed are validated. The idea is approved as a product direction, not a reason to delay the current beta.
