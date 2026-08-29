@@ -27,7 +27,10 @@ export function availableRecallModes(card: StudyCard): ReviewMode[] {
 }
 
 export function selectRecallMode(card: StudyCard): ReviewMode {
-  const modes = availableRecallModes(card);
+  // Quick rounds stay swipe-first. Typing remains available as a supported
+  // recall mode for dedicated challenges, but it is not injected into the
+  // normal card rotation where it would interrupt fast left/right grading.
+  const modes = availableRecallModes(card).filter((mode) => mode !== 'TYPING');
   const repetitions = Math.max(0, card.state?.repetitions ?? 0);
   return modes[repetitions % modes.length] ?? 'TARGET_TO_MEANING';
 }
