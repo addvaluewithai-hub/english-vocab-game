@@ -46,7 +46,7 @@ describe('text imports', () => {
     expect(parseLooseVocabularyList(paragraph)).toEqual([]);
   });
 
-  it('deduplicates repeated list entries and supports up to two thousand items', () => {
+  it('deduplicates repeated list entries and enforces the configured import bound', () => {
     const lines = Array.from({ length: MAX_LIST_CANDIDATES + 20 }, (_, index) => `term ${index}`);
     lines.unshift('term 0');
     const items = parseLooseVocabularyList(lines.join('\n'));
