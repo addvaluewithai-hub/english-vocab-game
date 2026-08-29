@@ -147,7 +147,7 @@ export function validatePastedText(text: string): string {
 }
 
 export function normalizeAiTextCandidates(
-  rows: Array<{
+  rows: {
     term: string;
     translation: string;
     definition: string | null;
@@ -157,7 +157,7 @@ export function normalizeAiTextCandidates(
     usefulness: number;
     cefrLevel: LearnerLevel | null;
     isVisuallyConcrete: boolean | null;
-  }>,
+  }[],
   options: { contextIsSource?: boolean; maxCandidates?: number; candidatePrefix?: string } = {},
 ): NormalizedImportCandidate[] {
   const contextIsSource = options.contextIsSource ?? true;
