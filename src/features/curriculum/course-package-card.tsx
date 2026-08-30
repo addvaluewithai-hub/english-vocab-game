@@ -57,19 +57,16 @@ export function CoursePackageCard({
             </Text>
           </View>
 
-          <View style={{ flex: 1, gap: 3 }}>
+          <View style={{ flex: 1, gap: 4 }}>
             <Text selectable numberOfLines={2} style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900', lineHeight: 21 }}>
               {pkg.title}
             </Text>
             <Text selectable numberOfLines={1} style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'left' }}>
               {pkg.titleAr}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{pkg.lessonId}</Text>
-              <Text aria-hidden style={{ color: colors.border }}>•</Text>
-              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>🎴 {pkg.items.length} cards</Text>
-              {selectedCount ? <Text selectable style={{ color: colors.success, fontSize: typography.small, fontWeight: '900' }}>✓ {selectedCount} packed</Text> : null}
-            </View>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>
+              {pkg.items.length} words & phrases{selectedCount ? ` · ✓ ${selectedCount} selected` : ''}
+            </Text>
           </View>
 
           <View style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' }}>
@@ -83,10 +80,9 @@ export function CoursePackageCard({
           <View style={{ gap: 6 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm }}>
               <Chip>World {pkg.unitNumber}</Chip>
-              <Chip>{pkg.sourceGroupIds.length} skill sets</Chip>
-              <Chip>Reward · {pkg.items.length}</Chip>
+              <Chip>{pkg.items.length} items</Chip>
             </View>
-            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '800' }}>Mission briefing</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>What you'll learn</Text>
             <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>{pkg.description}</Text>
           </View>
 
@@ -99,8 +95,8 @@ export function CoursePackageCard({
                   <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18 }}>{pkg.personalizationPrompt.description}</Text>
                 </View>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/add')} style={({ pressed }) => ({ alignSelf: 'flex-start', paddingVertical: 5, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900' }}>Add my personal card →</Text>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/manual-add')} style={({ pressed }) => ({ alignSelf: 'flex-start', paddingVertical: 5, opacity: pressed ? 0.65 : 1 })}>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900' }}>Add my own word →</Text>
               </Pressable>
             </View>
           ) : null}
@@ -112,11 +108,11 @@ export function CoursePackageCard({
               style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: allSelected ? colors.success : colors.ink, opacity: pressed ? 0.7 : 1 })}
             >
               <Text selectable style={{ color: colors.surface, fontSize: typography.small, fontWeight: '900' }}>
-                {allSelected ? '✓ All packed' : '🎒 Pack all'}
+                {allSelected ? '✓ All selected' : 'Select all'}
               </Text>
             </Pressable>
             <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small }}>
-              Pick only what you want to train.
+              Or choose only the words you want.
             </Text>
           </View>
 
@@ -166,7 +162,7 @@ export function CoursePackageCard({
               style={({ pressed }) => ({ alignSelf: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, opacity: pressed ? 0.65 : 1 })}
             >
               <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900' }}>
-                {showAllRewards ? 'Show fewer rewards ↑' : `Open reward chest · show all ${pkg.items.length} ↓`}
+                {showAllRewards ? 'Show fewer ↑' : `Show all ${pkg.items.length} ↓`}
               </Text>
             </Pressable>
           ) : null}
