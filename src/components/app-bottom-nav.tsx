@@ -16,7 +16,7 @@ function activeSection(pathname: string) {
   if (pathname.startsWith('/study')) return '/study';
   if (pathname.startsWith('/course-library')) return '/course-library';
   if (pathname.startsWith('/bank') || pathname.startsWith('/collections') || pathname.startsWith('/vocabulary/')) return '/bank';
-  if (pathname.startsWith('/add') || pathname.startsWith('/smart-import') || pathname.startsWith('/image-import') || pathname.startsWith('/imports') || pathname.startsWith('/import-staging')) return '/add';
+  if (pathname.startsWith('/add') || pathname.startsWith('/manual-add') || pathname.startsWith('/smart-import') || pathname.startsWith('/image-import') || pathname.startsWith('/imports') || pathname.startsWith('/import-staging')) return '/add';
   if (pathname.startsWith('/stats') || pathname.startsWith('/settings')) return '/';
   return null;
 }
