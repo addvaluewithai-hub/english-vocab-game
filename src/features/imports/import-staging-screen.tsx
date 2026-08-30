@@ -7,11 +7,6 @@ import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { ImportStagingService, type ImportBatch, type StagedCandidate } from '@/imports/staging';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
-const DEMO_CANDIDATES = [
-  { term: 'nevertheless', translation: 'مع ذلك', definition: 'despite what has just been said', contextSentence: 'The task was difficult; nevertheless, we finished it.', exampleTranslation: 'كانت المهمة صعبة؛ ومع ذلك أنهيناها.', usefulnessScore: 0.86, confidenceScore: 0.95 },
-  { term: 'charge', translation: 'يشحن', definition: 'to put electricity into a battery', contextSentence: 'Remember to charge your phone.', exampleTranslation: 'تذكر أن تشحن هاتفك.', usefulnessScore: 0.78, confidenceScore: 0.91 },
-];
-
 const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
 
 function CandidateEditor({ candidate, service, reload }: { candidate: StagedCandidate; service: ImportStagingService; reload: () => Promise<void> }) {
