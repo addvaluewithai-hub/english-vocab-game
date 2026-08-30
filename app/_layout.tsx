@@ -25,7 +25,8 @@ export default function RootLayout() {
           <Stack.Screen name="bank" options={{ title: 'Vocabulary Bank' }} />
           <Stack.Screen name="add" options={{ title: 'Vocabulary', presentation: 'modal' }} />
           <Stack.Screen name="course-library" options={{ title: 'Course Library' }} />
-          <Stack.Screen name="image-import" options={{ title: 'Import from Image' }} />
+          <Stack.Screen name="smart-import" options={{ title: 'Smart Import' }} />
+          <Stack.Screen name="image-import" options={{ title: 'Smart Import' }} />
           <Stack.Screen name="vocabulary/[cardId]" options={{ title: 'Vocabulary' }} />
           <Stack.Screen name="collections" options={{ title: 'Collections' }} />
           <Stack.Screen name="imports" options={{ title: 'Smart Imports' }} />
