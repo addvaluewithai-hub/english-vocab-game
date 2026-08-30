@@ -9,8 +9,15 @@ import { claimGuestLanguagePairs, GUEST_OWNER_KEY, PreferencesRepository } from 
 import { setActiveStudySession } from '@/study/session-store';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
-function Input({ label, value, onChangeText, secure = false }: { label: string; value: string; onChangeText: (value: string) => void; secure?: boolean }) {
-  return <View style={{ gap: spacing.xs }}><Text style={{ color: colors.ink, fontWeight: '700' }}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} secureTextEntry={secure} autoCapitalize={label === 'Email' ? 'none' : 'sentences'} keyboardType={label === 'Email' ? 'email-address' : 'default'} style={{ minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, backgroundColor: colors.surface, color: colors.ink }} /></View>;
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
+
+function Input({ label, value, onChangeText, secure = false, email = false }: { label: string; value: string; onChangeText: (value: string) => void; secure?: boolean; email?: boolean }) {
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Text style={{ color: colors.ink, fontWeight: '800', ...rtlText }}>{label}</Text>
+      <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} secureTextEntry={secure} autoCapitalize={email ? 'none' : 'sentences'} keyboardType={email ? 'email-address' : 'default'} style={{ minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, backgroundColor: colors.surface, color: colors.ink, ...(email ? {} : rtlText) }} />
+    </View>
+  );
 }
 
 export function AuthScreen() {
@@ -48,7 +55,7 @@ export function AuthScreen() {
       const nextUser = mode === 'SIGN_IN' ? await signInWithEmail(email, password) : await signUpWithEmail(email, password, name);
       await adoptUser(nextUser);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Authentication failed.');
+      setError(caught instanceof Error ? caught.message : 'معرفناش ندخل على الحساب. راجع البيانات وجرب تاني.');
     } finally {
       setBusy(false);
     }
@@ -67,20 +74,34 @@ export function AuthScreen() {
   }
 
   if (user) {
-    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.xl }} style={{ flex: 1, backgroundColor: colors.canvas }}><Surface style={{ padding: spacing.xl, gap: spacing.md }}><Chip>NEON ACCOUNT</Chip><Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>{user.name || user.email}</Text><Text selectable style={{ color: colors.inkMuted }}>{user.email}</Text><Text selectable style={{ color: colors.inkMuted, lineHeight: 23 }}>Local study stays available even if the network or auth service is unavailable. Cloud synchronization begins in T021.</Text><ActionButton label="Back to settings" onPress={() => router.replace('/settings')} /><ActionButton label={busy ? 'Signing out…' : 'Sign out'} tone="danger" disabled={busy} onPress={() => void signOut()} /></Surface></ScrollView>;
+    return (
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.xl }} style={{ flex: 1, backgroundColor: colors.canvas }}>
+        <Surface style={{ padding: spacing.xl, gap: spacing.md, alignItems: 'flex-end' }}>
+          <Chip>حسابك</Chip>
+          <Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>{user.name || user.email}</Text>
+          <Text selectable style={{ color: colors.inkMuted }}>{user.email}</Text>
+          <Text selectable style={{ color: colors.inkMuted, lineHeight: 23, ...rtlText }}>مذاكرتك المحلية تفضل شغالة حتى لو النت فصل. ولما المزامنة تكون متاحة، بياناتك تتربط بحسابك.</Text>
+          <View style={{ width: '100%' }}><ActionButton label="ارجع للإعدادات" onPress={() => router.replace('/settings')} /></View>
+          <View style={{ width: '100%' }}><ActionButton label={busy ? 'بنسجّل خروج…' : 'سجّل خروج'} tone="danger" disabled={busy} onPress={() => void signOut()} /></View>
+        </Surface>
+      </ScrollView>
+    );
   }
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.lg }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Surface style={{ padding: spacing.xl, gap: spacing.md }}>
-        <View style={{ gap: spacing.xs }}><Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>{mode === 'SIGN_IN' ? 'Sign in' : 'Create account'}</Text><Text selectable style={{ color: colors.inkMuted, lineHeight: 23 }}>An account is optional. It will be used for secure Neon backup and multi-device sync.</Text></View>
-        {error ? <Text selectable style={{ color: colors.danger, lineHeight: 22 }}>{error}</Text> : null}
-        {mode === 'SIGN_UP' ? <Input label="Name" value={name} onChangeText={setName} /> : null}
-        <Input label="Email" value={email} onChangeText={setEmail} />
-        <Input label="Password" value={password} onChangeText={setPassword} secure />
-        <ActionButton label={busy ? 'Please wait…' : mode === 'SIGN_IN' ? 'Sign in' : 'Create account'} disabled={busy || !email.trim() || password.length < 8} onPress={() => void submit()} />
-        <ActionButton label={mode === 'SIGN_IN' ? 'Need an account? Sign up' : 'Already have an account? Sign in'} onPress={() => { setMode((current) => current === 'SIGN_IN' ? 'SIGN_UP' : 'SIGN_IN'); setError(null); }} />
-        <ActionButton label="Continue as guest" onPress={() => router.back()} />
+        <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
+          <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>{mode === 'SIGN_IN' ? 'ادخل على حسابك' : 'اعمل حساب جديد'}</Text>
+          <Text selectable style={{ color: colors.inkMuted, lineHeight: 23, ...rtlText }}>الحساب اختياري. تقدر تكمل كضيف، أو تستخدمه عشان النسخ الاحتياطي والمزامنة بين أجهزتك.</Text>
+        </View>
+        {error ? <Text selectable style={{ color: colors.danger, lineHeight: 22, ...rtlText }}>{error}</Text> : null}
+        {mode === 'SIGN_UP' ? <Input label="اسمك" value={name} onChangeText={setName} /> : null}
+        <Input label="الإيميل" value={email} onChangeText={setEmail} email />
+        <Input label="كلمة السر" value={password} onChangeText={setPassword} secure />
+        <ActionButton label={busy ? 'ثانية واحدة…' : mode === 'SIGN_IN' ? 'دخول' : 'اعمل الحساب'} disabled={busy || !email.trim() || password.length < 8} onPress={() => void submit()} />
+        <ActionButton label={mode === 'SIGN_IN' ? 'معندكش حساب؟ اعمل واحد' : 'عندك حساب؟ ادخل عليه'} onPress={() => { setMode((current) => current === 'SIGN_IN' ? 'SIGN_UP' : 'SIGN_IN'); setError(null); }} />
+        <ActionButton label="كمل كضيف" onPress={() => router.back()} />
       </Surface>
     </ScrollView>
   );
