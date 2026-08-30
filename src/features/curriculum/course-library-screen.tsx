@@ -19,13 +19,15 @@ import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { CoursePackageCard } from './course-package-card';
 
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
+
 const WORLD_META: Record<number, { icon: string; shortTitle: string }> = {
-  1: { icon: '👋', shortTitle: 'First connections' },
-  2: { icon: '⏰', shortTitle: 'People & plans' },
-  3: { icon: '🏠', shortTitle: 'Home & things' },
-  4: { icon: '🧭', shortTitle: 'Places & travel' },
-  5: { icon: '🛍️', shortTitle: 'Services & needs' },
-  6: { icon: '💬', shortTitle: 'Messages & media' },
+  1: { icon: '👋', shortTitle: 'التعارف الأول' },
+  2: { icon: '⏰', shortTitle: 'الناس والمواعيد' },
+  3: { icon: '🏠', shortTitle: 'البيت والحاجات' },
+  4: { icon: '🧭', shortTitle: 'الأماكن والسفر' },
+  5: { icon: '🛍️', shortTitle: 'الخدمات والاحتياجات' },
+  6: { icon: '💬', shortTitle: 'الرسائل والتواصل' },
 };
 
 function FilterChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
@@ -44,7 +46,7 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
         opacity: pressed ? 0.72 : 1,
       })}
     >
-      <Text selectable numberOfLines={1} style={{ color: selected ? colors.surface : colors.inkMuted, fontSize: typography.small, fontWeight: '800' }}>
+      <Text selectable numberOfLines={1} style={{ color: selected ? colors.surface : colors.inkMuted, fontSize: typography.small, fontWeight: '800', ...rtlText }}>
         {label}
       </Text>
     </Pressable>
@@ -65,7 +67,7 @@ function WorldCard({ number, title, missionCount, selected, onPress }: {
       accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: 132,
+        width: 142,
         minHeight: 112,
         padding: spacing.sm,
         borderRadius: radius.lg,
@@ -76,12 +78,12 @@ function WorldCard({ number, title, missionCount, selected, onPress }: {
         justifyContent: 'space-between',
       })}
     >
-      <Text aria-hidden style={{ fontSize: 30 }}>{meta.icon}</Text>
-      <View style={{ gap: 2 }}>
-        <Text selectable style={{ color: selected ? colors.surfaceMuted : colors.inkMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 }}>
-          {number ? `WORLD ${number}` : 'A1 MAP'} · {missionCount}M
+      <Text aria-hidden style={{ fontSize: 30, textAlign: 'right' }}>{meta.icon}</Text>
+      <View style={{ gap: 2, alignItems: 'flex-end' }}>
+        <Text selectable style={{ color: selected ? colors.surfaceMuted : colors.inkMuted, fontSize: 10, fontWeight: '900', ...rtlText }}>
+          {number ? `العالم ${number}` : 'كل العوالم'} · {missionCount} مهمة
         </Text>
-        <Text selectable numberOfLines={2} style={{ color: selected ? colors.surface : colors.ink, fontSize: typography.small, fontWeight: '900', lineHeight: 16 }}>
+        <Text selectable numberOfLines={2} style={{ color: selected ? colors.surface : colors.ink, fontSize: typography.small, fontWeight: '900', lineHeight: 17, ...rtlText }}>
           {number ? meta.shortTitle : title}
         </Text>
       </View>
@@ -191,7 +193,7 @@ export function CourseLibraryScreen() {
       await refreshUsedPackages(pair.id);
       if (!imported.failedItems.length) setSelectedKeys(new Set());
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not add the selected course content.');
+      setError(caught instanceof Error ? caught.message : 'مقدرناش نضيف الكلمات اللي اخترتها.');
     } finally {
       setSaving(false);
     }
@@ -200,15 +202,15 @@ export function CourseLibraryScreen() {
   if (pairLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}>
-        <Text selectable style={{ color: colors.inkMuted }}>Loading your A1 map…</Text>
+        <Text selectable style={{ color: colors.inkMuted, ...rtlText }}>بنجهز مغامرة A1…</Text>
       </View>
     );
   }
   if (!pair) {
-    return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch. Reopen this screen if setup was interrupted." />;
+    return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
   }
   if (pair.targetLanguageCode !== 'en' || pair.referenceLanguageCode !== 'ar') {
-    return <EmptyState title="English → Arabic course" body="This A1 course is currently built for Arabic-speaking English learners. You can change languages later from Settings." action={<ActionButton label="Use English → Arabic" onPress={() => router.push('/settings')} />} />;
+    return <EmptyState title="كورس English → Arabic" body="الكورس ده معمول حاليًا للي بيتعلم إنجليزي بالعربي." action={<ActionButton label="استخدم English → Arabic" onPress={() => router.push('/settings')} />} />;
   }
 
   return (
@@ -219,14 +221,14 @@ export function CourseLibraryScreen() {
         contentContainerStyle={{ width: '100%', maxWidth: 760, alignSelf: 'center', padding: spacing.md, gap: spacing.md, paddingBottom: selectedCount ? 126 : 38 }}
       >
         <Surface style={{ padding: spacing.lg, gap: spacing.md, backgroundColor: colors.ink }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', letterSpacing: 1 }}>A1 ADVENTURE · FULL COURSE</Text>
-              <Text accessibilityRole="header" selectable style={{ color: colors.surface, fontSize: 32, lineHeight: 36, fontWeight: '900' }}>
-                Build your English deck
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start', gap: spacing.md }}>
+            <View style={{ flex: 1, gap: spacing.xs, alignItems: 'flex-end' }}>
+              <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', ...rtlText }}>مغامرة A1</Text>
+              <Text accessibilityRole="header" selectable style={{ color: colors.surface, fontSize: 32, lineHeight: 39, fontWeight: '900', ...rtlText }}>
+                اختار مهمتك الجاية
               </Text>
-              <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 20 }}>
-                Explore 6 worlds and 45 missions. New missions stay up front; missions you collect move to Completed.
+              <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 22, ...rtlText }}>
+                اختار عالم، افتح مهمة، وخد منها الكلمات والعبارات اللي إنت فعلًا عايز تذاكرها.
               </Text>
             </View>
             <View style={{ width: 66, height: 66, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
@@ -234,16 +236,16 @@ export function CourseLibraryScreen() {
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            <Chip>{A1_CATALOG_STATS.missionCount} missions</Chip>
-            <Chip>{A1_CATALOG_STATS.groupCount} skill sets</Chip>
-            <Chip>{A1_CATALOG_STATS.distinctMemberCount} source forms</Chip>
+          <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.sm }}>
+            <Chip>{CURRICULUM_UNITS.length} عوالم</Chip>
+            <Chip>{A1_CATALOG_STATS.missionCount} مهمة</Chip>
+            <Chip>{usedPackageIds.size} خلصتهم</Chip>
           </View>
 
           <View style={{ gap: 7 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text selectable style={{ flex: 1, color: colors.surfaceMuted, fontSize: typography.small }}>Backpack</Text>
-              <Text selectable style={{ color: colors.surface, fontSize: typography.small, fontWeight: '900' }}>{selectedCount} selected</Text>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
+              <Text selectable style={{ flex: 1, color: colors.surfaceMuted, fontSize: typography.small, ...rtlText }}>الشنطة</Text>
+              <Text selectable style={{ color: colors.surface, fontSize: typography.small, fontWeight: '900', ...rtlText }}>مختار {selectedCount}</Text>
             </View>
             <View style={{ height: 8, borderRadius: radius.pill, backgroundColor: '#3D453A', overflow: 'hidden' }}>
               <View style={{ width: `${backpackProgress}%`, height: '100%', borderRadius: radius.pill, backgroundColor: '#F3C85B' }} />
@@ -251,24 +253,23 @@ export function CourseLibraryScreen() {
           </View>
         </Surface>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Chip>A1 · LOCKED</Chip>
-          <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small }}>
-            {A1_CATALOG_STATS.rawMemberCount} reviewed source rows · {usedPackageIds.size} missions used
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
+          <Chip>A1</Chip>
+          <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>
+            English → Arabic · جربت {usedPackageIds.size} من {A1_CATALOG_STATS.missionCount} مهمة
           </Text>
-          <Chip>EN → AR</Chip>
         </View>
 
         <View style={{ gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900' }}>Choose a world</Text>
-              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Jump anywhere — nothing is locked.</Text>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+              <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900', ...rtlText }}>اختار عالم</Text>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>ابدأ من أي مكان. المهمات اللي استخدمتها بتتنقل لوحدها لقسم المخلص.</Text>
             </View>
             <Text aria-hidden style={{ fontSize: 24 }}>✨</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.md }}>
-            <WorldCard number={null} title="All worlds" missionCount={A1_CATALOG_STATS.missionCount} selected={unitId === 'ALL'} onPress={() => chooseUnit('ALL')} />
+            <WorldCard number={null} title="كل العوالم" missionCount={A1_CATALOG_STATS.missionCount} selected={unitId === 'ALL'} onPress={() => chooseUnit('ALL')} />
             {CURRICULUM_UNITS.map((unit) => (
               <WorldCard key={unit.id} number={unit.number} title={unit.title} missionCount={unit.missionCount} selected={unitId === unit.id} onPress={() => chooseUnit(unit.id)} />
             ))}
@@ -276,64 +277,64 @@ export function CourseLibraryScreen() {
         </View>
 
         <TextInput
-          accessibilityLabel="Search course library"
+          accessibilityLabel="دوّر في الكورس"
           value={query}
           onChangeText={(value) => {
             setQuery(value);
             if (value.trim()) setExpandedPackageId(null);
           }}
-          placeholder="🔎  Find a mission, word, phrase, or Arabic meaning…"
+          placeholder="🔎  دور على مهمة، كلمة، عبارة أو معنى…"
           placeholderTextColor={colors.inkMuted}
-          style={{ minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink, fontSize: typography.label }}
+          style={{ minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink, fontSize: typography.label, ...rtlText }}
         />
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ flex: 1, flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ flex: 1, flexDirection: 'row-reverse', gap: spacing.sm }}>
             {(['ALL', 'WORD', 'PHRASE'] as const).map((value) => (
               <FilterChip
                 key={value}
-                label={value === 'ALL' ? 'All cards' : value === 'WORD' ? 'Words' : 'Phrases'}
+                label={value === 'ALL' ? 'الكل' : value === 'WORD' ? 'كلمات' : 'عبارات'}
                 selected={kind === value}
                 onPress={() => setKind(value)}
               />
             ))}
           </View>
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{visibleEntryCount} rewards</Text>
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>{visibleEntryCount} متاح</Text>
         </View>
 
         {error ? (
           <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}>
-            <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.danger }}>{error}</Text>
+            <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.danger, ...rtlText }}>{error}</Text>
           </Surface>
         ) : null}
 
         {result ? (
           <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.successSurface }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
               <Text aria-hidden style={{ fontSize: 28 }}>🏆</Text>
-              <View style={{ flex: 1 }}>
-                <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.success, fontSize: typography.label, fontWeight: '900' }}>Deck upgraded!</Text>
-                <Text selectable style={{ color: colors.success, fontSize: typography.small, lineHeight: 18 }}>
-                  {result.added} new · {result.reused} already owned · {result.collectionsCreated} mission collections created
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.success, fontSize: typography.label, fontWeight: '900', ...rtlText }}>اتضافوا لكلماتك!</Text>
+                <Text selectable style={{ color: colors.success, fontSize: typography.small, lineHeight: 18, ...rtlText }}>
+                  {result.added} جديد · {result.reused} كانوا موجودين عندك
                 </Text>
               </View>
             </View>
-            {result.failedItems.length ? <Text selectable style={{ color: colors.danger }}>Could not add: {result.failedItems.join(', ')}</Text> : null}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {result.failedItems.length ? <Text selectable style={{ color: colors.danger, ...rtlText }}>معرفناش نضيف: {result.failedItems.join(', ')}</Text> : null}
+            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.sm }}>
               <Pressable accessibilityRole="button" onPress={() => router.push('/bank')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Open Bank →</Text>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800', ...rtlText }}>افتح كلماتي ←</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800' }}>Train in Swipe →</Text>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/study')} style={({ pressed }) => ({ paddingVertical: 7, opacity: pressed ? 0.65 : 1 })}>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800', ...rtlText }}>ابدأ مذاكرة ←</Text>
               </Pressable>
             </View>
           </Surface>
         ) : null}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
-          <View style={{ flex: 1 }}>
-            <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900' }}>New missions</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Only missions you have not collected from yet.</Text>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900', ...rtlText }}>لسه قدامك</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>مهمات لسه ماخدتش منها كلمات.</Text>
           </View>
           <Chip>{newPackages.length}</Chip>
         </View>
@@ -351,7 +352,7 @@ export function CourseLibraryScreen() {
         )) : (
           <Surface style={{ padding: spacing.lg }}>
             <Text aria-hidden style={{ textAlign: 'center', fontSize: 34 }}>🎉</Text>
-            <Text selectable style={{ color: colors.inkMuted, textAlign: 'center', marginTop: spacing.sm }}>No unused mission matches these filters.</Text>
+            <Text selectable style={{ color: colors.inkMuted, textAlign: 'center', marginTop: spacing.sm, writingDirection: 'rtl' }}>مفيش مهمة جديدة مطابقة للفلاتر دي.</Text>
           </Surface>
         )}
 
@@ -362,7 +363,7 @@ export function CourseLibraryScreen() {
               accessibilityState={{ expanded: showCompleted }}
               onPress={() => setShowCompleted((value) => !value)}
               style={({ pressed }) => ({
-                flexDirection: 'row',
+                flexDirection: 'row-reverse',
                 alignItems: 'center',
                 padding: spacing.md,
                 borderWidth: 1,
@@ -372,9 +373,9 @@ export function CourseLibraryScreen() {
                 opacity: pressed ? 0.72 : 1,
               })}
             >
-              <View style={{ flex: 1 }}>
-                <Text selectable style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900' }}>✓ Completed missions</Text>
-                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{completedPackages.length} used in your Bank · tap to {showCompleted ? 'hide' : 'show'}</Text>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text selectable style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900', ...rtlText }}>✓ المهمات اللي استخدمتها</Text>
+                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>{completedPackages.length} مهمة خدت منها كلمات · دوس عشان {showCompleted ? 'تخفيهم' : 'تشوفهم'}</Text>
               </View>
               <Text aria-hidden style={{ color: colors.ink, fontSize: 22 }}>{showCompleted ? '−' : '+'}</Text>
             </Pressable>
@@ -396,15 +397,15 @@ export function CourseLibraryScreen() {
 
       {selectedCount ? (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md }}>
-          <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <View style={{ minWidth: 110 }}>
-              <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>🎒 {selectedCount} cards</Text>
+          <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center', flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md }}>
+            <View style={{ minWidth: 110, alignItems: 'flex-end' }}>
+              <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900', ...rtlText }}>🎒 {selectedCount} كارت</Text>
               <Pressable accessibilityRole="button" onPress={() => setSelectedKeys(new Set())}>
-                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Empty backpack</Text>
+                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>فضّي الشنطة</Text>
               </Pressable>
             </View>
             <View style={{ flex: 1 }}>
-              <ActionButton label={saving ? 'Collecting…' : 'Collect to Bank'} disabled={saving} onPress={() => void addSelected()} />
+              <ActionButton label={saving ? 'بنضيف…' : 'ضيفهم لكلماتي'} disabled={saving} onPress={() => void addSelected()} />
             </View>
           </View>
         </View>

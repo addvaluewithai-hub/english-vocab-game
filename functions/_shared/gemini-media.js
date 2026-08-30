@@ -3,8 +3,10 @@ export const MEDIA_MODEL_CHAIN = [
   'gemini-3.5-flash-lite',
 ];
 
+export const MEDIA_ATTEMPT_TIMEOUT_MS = 30_000;
+export const YOUTUBE_ATTEMPT_TIMEOUT_MS = 60_000;
+
 const RETRYABLE_STATUSES = new Set([404, 408, 409, 429, 500, 502, 503, 504]);
-const DEFAULT_ATTEMPT_TIMEOUT_MS = 8_000;
 
 function extractGenerateText(payload) {
   return payload?.candidates?.[0]?.content?.parts
@@ -89,7 +91,7 @@ async function callInteraction({ apiKey, model, input, signal }) {
   };
 }
 
-async function routeChain(call, acceptText, attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS) {
+async function routeChain(call, acceptText, attemptTimeoutMs = MEDIA_ATTEMPT_TIMEOUT_MS) {
   const attempts = [];
   for (const model of MEDIA_MODEL_CHAIN) {
     const deadline = attemptSignal(attemptTimeoutMs);
@@ -157,6 +159,6 @@ export async function routeGeminiYouTube({ apiKey, url, prompt, acceptText = () 
       signal,
     }),
     acceptText,
-    12_000,
+    YOUTUBE_ATTEMPT_TIMEOUT_MS,
   );
 }

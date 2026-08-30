@@ -32,11 +32,15 @@ async function readJsonResponse(response: Response): Promise<Record<string, unkn
 function errorMessage(body: Record<string, unknown>, fallback: string): string {
   if (typeof body.message === 'string' && body.message.trim()) return body.message;
   if (typeof body.error === 'string' && body.error.trim()) {
-    if (body.error === 'gemini-not-configured') return 'Gemini is not configured on the server yet.';
-    if (body.error === 'too-many-requests') return 'Gemini is busy for this device. Try again in a minute.';
-    if (body.error === 'media-too-large' || body.error === 'request-too-large') return 'That source is too large for the quick import path. Use a smaller file or fewer images.';
-    if (body.error === 'public-url-required') return 'Paste a public web URL that does not require a login.';
-    if (body.error === 'all-models-unavailable') return 'All Gemini models are temporarily busy. Try again shortly.';
+    if (body.error === 'gemini-not-configured') return 'Gemini لسه مش متظبط على السيرفر.';
+    if (body.error === 'too-many-requests') return 'في طلبات كتير من الجهاز ده. استنى دقيقة وجرب تاني.';
+    if (body.error === 'media-too-large' || body.error === 'request-too-large') return 'المصدر كبير على الإضافة السريعة. جرّب ملف أصغر أو صور أقل.';
+    if (body.error === 'public-url-required') return 'حط لينك عام يفتح من غير تسجيل دخول.';
+    if (body.error === 'all-models-unavailable') return 'Gemini مش متاح دلوقتي. جرّب كمان شوية.';
+    if (body.error === 'media-timeout') return 'التحليل أخد وقت أطول من المتوقع. جرّب تاني أو استخدم ملف/فيديو أقصر.';
+    if (body.error === 'rate-limited') return 'وصلنا لحد الاستخدام مؤقتًا. استنى شوية وجرب تاني.';
+    if (body.error === 'model-not-available') return 'الموديل مش متاح للمصدر ده دلوقتي.';
+    if (body.error === 'provider-rejected-request') return 'Gemini رفض الطلب ده. اتأكد إن المصدر عام وصالح وجرب تاني.';
     return body.error.replaceAll('-', ' ');
   }
   return fallback;
@@ -59,9 +63,9 @@ export async function discoverVocabulary(input: DiscoveryInput): Promise<Discove
     body: JSON.stringify(input),
   });
   const body = await readJsonResponse(response);
-  if (!response.ok) throw new Error(errorMessage(body, 'Gemini could not analyze this source.'));
+  if (!response.ok) throw new Error(errorMessage(body, 'Gemini معرفش يحلل المصدر ده. جرّب تاني.'));
   const candidates = Array.isArray(body.candidates) ? body.candidates.filter(isDiscovered) : [];
-  if (!candidates.length) throw new Error('No useful English vocabulary was found in that source.');
+  if (!candidates.length) throw new Error('ملقيناش كلمات إنجليزي مفيدة في المصدر ده.');
   return candidates;
 }
 
@@ -99,9 +103,9 @@ export async function enrichDiscoveredVocabulary(items: DiscoveredVocabulary[]):
       }),
     });
     const body = await readJsonResponse(response);
-    if (!response.ok) throw new Error(errorMessage(body, 'Gemini could not enrich the selected vocabulary.'));
+    if (!response.ok) throw new Error(errorMessage(body, 'Gemini معرفش يكمل بيانات الكلمات اللي اخترتها.'));
     const result = Array.isArray(body.items) ? body.items.filter(isEnriched) : [];
-    if (result.length !== chunk.length) throw new Error('Gemini returned an incomplete vocabulary batch. Try again.');
+    if (result.length !== chunk.length) throw new Error('Gemini رجّع جزء من الكلمات بس. جرّب تاني.');
 
     const discoveryByTerm = new Map(chunk.map((item) => [item.term.toLocaleLowerCase(), item]));
     for (const item of result) {

@@ -1,5 +1,5 @@
-import { StudyScreen } from '@/study/study-screen';
+import { HomeScreen } from '@/features/home/home-screen';
 
-export default function StudyRoute() {
-  return <StudyScreen />;
+export default function HomeRoute() {
+  return <HomeScreen />;
 }

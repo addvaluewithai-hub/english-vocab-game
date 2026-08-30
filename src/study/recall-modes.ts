@@ -41,7 +41,7 @@ export function promptForMode(card: StudyCard, mode: ReviewMode): string {
     case 'MEANING_TO_TARGET':
     case 'TYPING': return card.translation;
     case 'CLOZE': return clozeSentence(card) ?? card.term;
-    case 'LISTENING': return 'Listen, then recall the word or phrase';
+    case 'LISTENING': return 'اسمع وحاول تفتكر الكلمة أو العبارة';
   }
 }
 
