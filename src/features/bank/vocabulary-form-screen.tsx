@@ -10,10 +10,12 @@ import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import type { TermKind } from '@/domain/types';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
-function Field({ label, value, onChangeText, placeholder, multiline = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; multiline?: boolean }) {
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
+
+function Field({ label, value, onChangeText, placeholder, multiline = false, rtl = false }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; multiline?: boolean; rtl?: boolean }) {
   return (
     <View style={{ gap: spacing.xs }}>
-      <Text style={{ color: colors.ink, fontSize: typography.label, fontWeight: '700' }}>{label}</Text>
+      <Text style={{ color: colors.ink, fontSize: typography.label, fontWeight: '800', ...rtlText }}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -22,7 +24,7 @@ function Field({ label, value, onChangeText, placeholder, multiline = false }: {
         placeholderTextColor={colors.inkMuted}
         multiline={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}
-        style={{ minHeight: multiline ? 92 : 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.ink, fontSize: typography.body }}
+        style={{ minHeight: multiline ? 92 : 50, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.ink, fontSize: typography.body, ...(rtl ? rtlText : {}) }}
       />
     </View>
   );
@@ -61,7 +63,7 @@ export function VocabularyFormScreen() {
       setCollections(list);
       if (cardId) {
         const detail = await repo.getDetail(cardId);
-        if (!detail) throw new Error('Vocabulary item not found.');
+        if (!detail) throw new Error('الكلمة دي مش موجودة.');
         setTerm(detail.term);
         setKind(detail.termKind);
         setTranslation(detail.translation);
@@ -78,7 +80,7 @@ export function VocabularyFormScreen() {
     }
     void load().catch((caught: unknown) => {
       if (!cancelled) {
-        setError(caught instanceof Error ? caught.message : 'Could not load the form.');
+        setError(caught instanceof Error ? caught.message : 'مقدرناش نفتح بيانات الكلمة.');
         setLoading(false);
       }
     });
@@ -99,10 +101,10 @@ export function VocabularyFormScreen() {
       setExampleTranslation(suggestion.exampleTranslation);
       setAdvanced(true);
       setAiMessage(suggestion.fallbackCount > 0
-        ? `Filled with ${suggestion.model} after ${suggestion.fallbackCount} fallback${suggestion.fallbackCount === 1 ? '' : 's'}.`
-        : `Filled with ${suggestion.model}.`);
+        ? `Gemini ظبطها بعد ما جرّب ${suggestion.fallbackCount + 1} موديل.`
+        : 'Gemini ظبط لك المعنى والمثال. راجعهم وعدّل براحتك.');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not fill this vocabulary with Gemini.');
+      setError(caught instanceof Error ? caught.message : 'Gemini معرفش يكمل الكلمة دلوقتي. جرّب تاني.');
     } finally {
       setAiFilling(false);
     }
@@ -127,73 +129,60 @@ export function VocabularyFormScreen() {
         router.replace({ pathname: '/vocabulary/[cardId]', params: { cardId: result.cardId } });
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save vocabulary.');
+      setError(caught instanceof Error ? caught.message : 'مقدرناش نحفظ الكلمة. جرّب تاني.');
     } finally {
       setSaving(false);
     }
   }
 
-  if (pairLoading || loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator /></View>;
-  if (!pair) return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch." />;
+  if (pairLoading || loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="بنفتح بيانات الكلمة" /></View>;
+  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
 
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <View style={{ gap: spacing.xs }}>
-        <Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>{cardId ? 'Edit vocabulary' : 'Add vocabulary'}</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pair.targetLanguageName} → {pair.referenceLanguageName}</Text>
+    <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ width: '100%', maxWidth: 720, alignSelf: 'center', padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
+        <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>{cardId ? 'عدّل الكلمة' : 'ضيف كلمة'}</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, ...rtlText }}>إنجليزي → عربي</Text>
       </View>
-      {!cardId ? (
-        <View style={{ gap: spacing.md }}>
-          <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.ink }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
-              <Text aria-hidden style={{ fontSize: 30 }}>✨</Text>
-              <View style={{ flex: 1, gap: spacing.xs }}>
-                <Text selectable style={{ color: colors.surface, fontSize: 19, fontWeight: '900' }}>Gemini Smart Import</Text>
-                <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Paste text, choose images or a PDF, or give Gemini a YouTube or public web URL. Pick the vocabulary before translation.</Text>
-              </View>
-            </View>
-            <ActionButton label="Start smart import" onPress={() => router.push('/smart-import')} />
-          </Surface>
 
-          <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
-            <View style={{ gap: spacing.xs }}>
-              <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
-              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse A1 missions, collect useful vocabulary and phrases, then train them in the same Bank.</Text>
-            </View>
-            <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
-          </Surface>
-        </View>
-      ) : null}
-      {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger }}>{error}</Text></Surface> : null}
-      <Field label="Term or phrase" value={term} onChangeText={(value) => { setTerm(value); setAiMessage(null); }} placeholder="e.g. look forward to" />
+      {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger, ...rtlText }}>{error}</Text></Surface> : null}
+
+      <Field label="الكلمة أو العبارة بالإنجليزي" value={term} onChangeText={(value) => { setTerm(value); setAiMessage(null); }} placeholder="مثلاً: look forward to" />
+
       {!cardId ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {(['WORD', 'PHRASE'] as const).map((value) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: kind === value }} onPress={() => setKind(value)} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: kind === value ? colors.accent : colors.surfaceMuted }}><Text style={{ color: kind === value ? colors.surface : colors.inkMuted, fontWeight: '700' }}>{value === 'WORD' ? 'Word' : 'Phrase'}</Text></Pressable>)}
+        <View style={{ flexDirection: 'row-reverse', gap: spacing.sm }}>
+          {(['WORD', 'PHRASE'] as const).map((value) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: kind === value }} onPress={() => setKind(value)} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: kind === value ? colors.accent : colors.surfaceMuted }}><Text style={{ color: kind === value ? colors.surface : colors.inkMuted, fontWeight: '700', ...rtlText }}>{value === 'WORD' ? 'كلمة' : 'عبارة'}</Text></Pressable>)}
         </View>
       ) : null}
+
       <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surfaceMuted }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start', gap: spacing.sm }}>
           <Text aria-hidden style={{ fontSize: 28 }}>✨</Text>
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text selectable style={{ color: colors.ink, fontWeight: '900', fontSize: 18 }}>Gemini assist</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>Type the English word or phrase. Gemini will suggest the Arabic meaning, definition and a natural example sentence. You can edit everything before saving.</Text>
+          <View style={{ flex: 1, gap: 3, alignItems: 'flex-end' }}>
+            <Text selectable style={{ color: colors.ink, fontWeight: '900', fontSize: 18, ...rtlText }}>خلي Gemini يكملها</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20, ...rtlText }}>اكتب الإنجليزي بس، وهو يقترح المعنى بالعربي والتعريف ومثال طبيعي. كل حاجة تقدر تعدّلها قبل الحفظ.</Text>
           </View>
         </View>
-        <ActionButton label={aiFilling ? 'Thinking…' : 'Fill with Gemini'} disabled={aiFilling || !term.trim()} onPress={() => void fillWithGemini()} />
-        {aiMessage ? <Text selectable style={{ color: colors.success, fontSize: typography.small, fontWeight: '700' }}>{aiMessage}</Text> : null}
+        <ActionButton label={aiFilling ? 'بيفكر…' : 'كمّل بـ Gemini'} disabled={aiFilling || !term.trim()} onPress={() => void fillWithGemini()} />
+        {aiMessage ? <Text selectable style={{ color: colors.success, fontSize: typography.small, fontWeight: '700', ...rtlText }}>{aiMessage}</Text> : null}
       </Surface>
-      <Field label="Meaning / translation" value={translation} onChangeText={setTranslation} placeholder="The meaning you want to recall" />
-      <Field label="Context sentence" value={context} onChangeText={setContext} placeholder="Where you saw or would use it" multiline />
-      <Pressable accessibilityRole="button" onPress={() => setAdvanced((value) => !value)}><Text style={{ color: colors.accent, fontWeight: '800', fontSize: typography.body }}>{advanced ? 'Hide optional details' : 'Add optional details'}</Text></Pressable>
+
+      <Field label="المعنى بالعربي" value={translation} onChangeText={setTranslation} placeholder="المعنى اللي عايز تفتكره" rtl />
+      <Field label="مثال بالإنجليزي" value={context} onChangeText={setContext} placeholder="جملة طبيعية تستخدم فيها الكلمة" multiline />
+
+      <Pressable accessibilityRole="button" onPress={() => setAdvanced((value) => !value)}><Text style={{ color: colors.accent, fontWeight: '800', fontSize: typography.body, ...rtlText }}>{advanced ? 'اخفي التفاصيل الزيادة' : 'وريني تفاصيل أكتر'}</Text></Pressable>
+
       {advanced ? <View style={{ gap: spacing.md }}>
-        <Field label="Definition" value={definition} onChangeText={setDefinition} multiline />
-        <Field label="Part of speech" value={partOfSpeech} onChangeText={setPartOfSpeech} placeholder="noun, verb, adjective…" />
-        <Field label="Pronunciation" value={pronunciation} onChangeText={setPronunciation} placeholder="IPA or a helpful hint" />
-        <Field label="Example translation" value={exampleTranslation} onChangeText={setExampleTranslation} multiline />
-        <Field label="Note" value={note} onChangeText={setNote} multiline />
+        <Field label="التعريف بالإنجليزي" value={definition} onChangeText={setDefinition} multiline />
+        <Field label="نوع الكلمة" value={partOfSpeech} onChangeText={setPartOfSpeech} placeholder="noun, verb, adjective…" />
+        <Field label="النطق" value={pronunciation} onChangeText={setPronunciation} placeholder="IPA أو أي ملاحظة تساعدك في النطق" />
+        <Field label="ترجمة المثال" value={exampleTranslation} onChangeText={setExampleTranslation} multiline rtl />
+        <Field label="ملاحظتك" value={note} onChangeText={setNote} multiline rtl />
       </View> : null}
-      {collections.length ? <View style={{ gap: spacing.sm }}><Text style={{ color: colors.ink, fontWeight: '800' }}>Collections</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>{collections.map((collection) => { const selected = selectedCollections.includes(collection.id); return <Pressable key={collection.id} onPress={() => setSelectedCollections((current) => selected ? current.filter((id) => id !== collection.id) : [...current, collection.id])}><Chip>{selected ? '✓ ' : ''}{collection.name}</Chip></Pressable>; })}</View></View> : null}
-      <ActionButton label={saving ? 'Saving…' : cardId ? 'Save changes' : 'Add to bank'} disabled={saving || !term.trim() || !translation.trim()} onPress={() => void save()} />
+
+      {collections.length ? <View style={{ gap: spacing.sm, alignItems: 'flex-end' }}><Text style={{ color: colors.ink, fontWeight: '800', ...rtlText }}>المجموعات</Text><View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.sm }}>{collections.map((collection) => { const selected = selectedCollections.includes(collection.id); return <Pressable key={collection.id} onPress={() => setSelectedCollections((current) => selected ? current.filter((id) => id !== collection.id) : [...current, collection.id])}><Chip>{selected ? '✓ ' : ''}{collection.name}</Chip></Pressable>; })}</View></View> : null}
+
+      <ActionButton label={saving ? 'بنحفظ…' : cardId ? 'احفظ التعديلات' : 'ضيفها لكلماتي'} disabled={saving || !term.trim() || !translation.trim()} onPress={() => void save()} />
     </ScrollView>
   );
 }
