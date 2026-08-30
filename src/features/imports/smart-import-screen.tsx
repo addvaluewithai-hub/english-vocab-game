@@ -14,12 +14,12 @@ import { ImportStagingService } from '@/imports/staging';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 const MAX_IMAGES = 3;
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_PDF_BYTES = 8 * 1024 * 1024;
 
 const SOURCES: { type: GeminiImportSourceType; icon: string; label: string; hint: string }[] = [
   { type: 'TEXT', icon: '✍️', label: 'Text', hint: 'Paste notes, a list, or a paragraph' },
-  { type: 'PHOTO', icon: '🖼️', label: 'Images', hint: 'Up to 3 screenshots or photos' },
+  { type: 'PHOTO', icon: '🖼️', label: 'Images', hint: 'Camera or up to 3 screenshots/photos' },
   { type: 'PDF', icon: '📄', label: 'PDF', hint: 'Let Gemini read the document' },
   { type: 'YOUTUBE', icon: '▶️', label: 'YouTube', hint: 'Public video URL' },
   { type: 'URL', icon: '🌐', label: 'Web URL', hint: 'Public article, page, or linked PDF' },
@@ -53,6 +53,17 @@ async function pdfAssetToBase64(asset: DocumentPicker.DocumentPickerAsset): Prom
   if (asset.base64) return asset.base64;
   if (asset.file) return arrayBufferToBase64(await asset.file.arrayBuffer());
   return FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+}
+
+function selectedImageFromAsset(asset: ImagePicker.ImagePickerAsset, fallbackName: string): SelectedImage | null {
+  if (!asset.base64) return null;
+  return {
+    uri: asset.uri,
+    data: asset.base64,
+    mimeType: asset.mimeType ?? 'image/jpeg',
+    name: asset.fileName ?? fallbackName,
+    size: asset.fileSize ?? null,
+  };
 }
 
 function sourceTitle(
@@ -95,11 +106,23 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
     [candidates, selected],
   );
 
-  function changeSource(next: GeminiImportSourceType) {
-    setSourceType(next);
+  function resetDiscovery() {
     setCandidates([]);
     setSelected(new Set());
+  }
+
+  function changeSource(next: GeminiImportSourceType) {
+    setSourceType(next);
+    resetDiscovery();
     setError(null);
+  }
+
+  function validateImageSize(item: SelectedImage): boolean {
+    if (item.size !== null && item.size > MAX_IMAGE_BYTES) {
+      setError(`${item.name} is larger than 3 MB. Crop it or choose a smaller image.`);
+      return false;
+    }
+    return true;
   }
 
   async function chooseImages() {
@@ -108,28 +131,50 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       allowsMultipleSelection: true,
       selectionLimit: MAX_IMAGES,
       base64: true,
-      quality: 0.74,
+      quality: 0.7,
     });
     if (result.canceled) return;
-    const next = result.assets.slice(0, MAX_IMAGES).flatMap((asset, index) => {
-      if (!asset.base64) return [];
-      return [{
-        uri: asset.uri,
-        data: asset.base64,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        name: asset.fileName ?? `Image ${index + 1}`,
-        size: asset.fileSize ?? null,
-      }];
-    });
+    const next = result.assets
+      .slice(0, MAX_IMAGES)
+      .flatMap((asset, index) => {
+        const item = selectedImageFromAsset(asset, `Image ${index + 1}`);
+        return item ? [item] : [];
+      });
     const tooLarge = next.find((item) => item.size !== null && item.size > MAX_IMAGE_BYTES);
     if (tooLarge) {
-      setError(`${tooLarge.name} is larger than 4 MB. Crop it or choose a smaller image.`);
+      setError(`${tooLarge.name} is larger than 3 MB. Crop it or choose a smaller image.`);
       return;
     }
     setImages(next);
-    setCandidates([]);
-    setSelected(new Set());
+    resetDiscovery();
     setError(next.length ? null : 'Could not read those images.');
+  }
+
+  async function takePhoto() {
+    if (images.length >= MAX_IMAGES) {
+      setError(`You already have ${MAX_IMAGES} images. Remove/reselect before taking another photo.`);
+      return;
+    }
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError('Camera permission is required to take a vocabulary photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      base64: true,
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const item = selectedImageFromAsset(result.assets[0], `Camera ${images.length + 1}`);
+    if (!item) {
+      setError('Could not read that photo.');
+      return;
+    }
+    if (!validateImageSize(item)) return;
+    setImages((current) => [...current, item].slice(0, MAX_IMAGES));
+    resetDiscovery();
+    setError(null);
   }
 
   async function choosePdf() {
@@ -149,8 +194,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
     try {
       const data = await pdfAssetToBase64(asset);
       setPdf({ name: asset.name, data, size: asset.size ?? null });
-      setCandidates([]);
-      setSelected(new Set());
+      resetDiscovery();
     } catch {
       setError('Could not read that PDF. Try downloading it locally first.');
     }
@@ -166,7 +210,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
         if (!text.trim()) throw new Error('Paste some English text first.');
         next = await discoverVocabulary({ sourceType, text: text.trim() });
       } else if (sourceType === 'PHOTO') {
-        if (!images.length) throw new Error('Choose at least one image first.');
+        if (!images.length) throw new Error('Choose or take at least one image first.');
         next = await discoverVocabulary({
           sourceType,
           images: images.map(({ mimeType, data }) => ({ mimeType, data })),
@@ -235,16 +279,16 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       </ScrollView>
 
       {sourceType === 'TEXT' ? (
-        <TextInput accessibilityLabel="Text to analyze" value={text} onChangeText={(value) => { setText(value); setCandidates([]); }} placeholder="Paste a list, notes, subtitles, an article excerpt…" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, color: colors.ink, textAlignVertical: 'top', fontSize: typography.body }} />
+        <TextInput accessibilityLabel="Text to analyze" value={text} onChangeText={(value) => { setText(value); resetDiscovery(); }} placeholder="Paste a list, notes, subtitles, an article excerpt…" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, color: colors.ink, textAlignVertical: 'top', fontSize: typography.body }} />
       ) : null}
 
       {sourceType === 'YOUTUBE' ? (
-        <TextInput accessibilityLabel="YouTube URL" value={youtubeUrl} onChangeText={(value) => { setYoutubeUrl(value); setCandidates([]); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://www.youtube.com/watch?v=…" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
+        <TextInput accessibilityLabel="YouTube URL" value={youtubeUrl} onChangeText={(value) => { setYoutubeUrl(value); resetDiscovery(); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://www.youtube.com/watch?v=…" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
       ) : null}
 
       {sourceType === 'URL' ? (
         <View style={{ gap: spacing.sm }}>
-          <TextInput accessibilityLabel="Public web URL" value={webUrl} onChangeText={(value) => { setWebUrl(value); setCandidates([]); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://example.com/article" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
+          <TextInput accessibilityLabel="Public web URL" value={webUrl} onChangeText={(value) => { setWebUrl(value); resetDiscovery(); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://example.com/article" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
           <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Works with public pages and direct public PDF/image URLs. Login-required and paywalled pages cannot be read by Gemini URL Context.</Text>
         </View>
       ) : null}
@@ -258,7 +302,11 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
 
       {sourceType === 'PHOTO' ? (
         <View style={{ gap: spacing.sm }}>
-          <ActionButton label={images.length ? 'Choose other images' : 'Choose up to 3 images'} onPress={() => void chooseImages()} />
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}><ActionButton label={images.length ? 'Choose other images' : 'Choose images'} onPress={() => void chooseImages()} /></View>
+            <View style={{ flex: 1 }}><ActionButton label="Take photo" onPress={() => void takePhoto()} /></View>
+          </View>
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Up to 3 images total. Gemini reads visible English across all of them together.</Text>
           {images.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>{images.map((item) => <Surface key={item.uri} style={{ width: 150, overflow: 'hidden' }}><Image source={item.uri} style={{ width: 150, height: 112 }} contentFit="cover" /><View style={{ padding: spacing.sm }}><Text numberOfLines={1} style={{ color: colors.ink, fontSize: typography.small, fontWeight: '800' }}>{item.name}</Text></View></Surface>)}</ScrollView> : null}
         </View>
       ) : null}
@@ -299,7 +347,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
           <Surface style={{ padding: spacing.md, gap: spacing.xs, backgroundColor: colors.surfaceMuted }}><Text selectable style={{ color: colors.ink, fontWeight: '900' }}>Next step</Text><Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Gemini translates only the selected items and creates a definition + natural example + Arabic example translation. Then you get one final editable Review screen.</Text></Surface>
           <ActionButton label={enriching ? `Preparing ${selectedCandidates.length}…` : `Translate & review ${selectedCandidates.length}`} disabled={enriching || selectedCandidates.length === 0} onPress={() => void prepareSelected()} />
           {enriching ? <ActivityIndicator accessibilityLabel="Gemini is enriching selected vocabulary" /> : null}
-          <Pressable onPress={() => { setCandidates([]); setSelected(new Set()); }}><Text style={{ color: colors.inkMuted, fontWeight: '800', textAlign: 'center' }}>Analyze a different source</Text></Pressable>
+          <Pressable onPress={resetDiscovery}><Text style={{ color: colors.inkMuted, fontWeight: '800', textAlign: 'center' }}>Analyze a different source</Text></Pressable>
         </View>
       )}
     </ScrollView>
