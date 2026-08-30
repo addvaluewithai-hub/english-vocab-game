@@ -1,5 +1,5 @@
-import { ImageImportScreen } from '@/features/imports/image-import-screen';
+import { SmartImportScreen } from '@/features/imports/smart-import-screen';
 
 export default function ImageImportRoute() {
-  return <ImageImportScreen />;
+  return <SmartImportScreen initialSourceType="PHOTO" />;
 }
