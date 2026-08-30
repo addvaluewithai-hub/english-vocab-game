@@ -113,8 +113,7 @@ export async function enrichDiscoveredVocabulary(items: DiscoveredVocabulary[]):
         contextSentence: item.contextSentence,
         exampleTranslation: item.exampleTranslation,
         partOfSpeech: item.partOfSpeech,
-        usefulnessScore: discovered?.usefulnessScore,
-        confidenceScore: discovered?.confidenceScore,
+        ...(discovered ? { usefulnessScore: discovered.usefulnessScore, confidenceScore: discovered.confidenceScore } : {}),
       });
     }
   }
