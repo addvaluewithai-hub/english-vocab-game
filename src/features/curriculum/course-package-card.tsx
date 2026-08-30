@@ -24,6 +24,7 @@ interface CoursePackageCardProps {
 }
 
 const COLLAPSED_REWARD_LIMIT = 24;
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
 
 export function CoursePackageCard({
   pkg,
@@ -45,11 +46,11 @@ export function CoursePackageCard({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${expanded ? 'Collapse' : 'Open'} mission ${pkg.title}`}
+        accessibilityLabel={`${expanded ? 'اقفل' : 'افتح'} مهمة ${pkg.titleAr || pkg.title}`}
         onPress={onToggleExpanded}
         style={({ pressed }) => ({ paddingHorizontal: spacing.md, paddingVertical: spacing.md, opacity: pressed ? 0.72 : 1 })}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md }}>
           <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: expanded ? colors.ink : colors.surfaceMuted, alignItems: 'center', justifyContent: 'center', gap: 1 }}>
             <Text aria-hidden style={{ fontSize: 23 }}>{unitIcon}</Text>
             <Text selectable style={{ color: expanded ? colors.surfaceMuted : colors.inkMuted, fontSize: 8, fontWeight: '900', letterSpacing: 0.7 }}>
@@ -57,15 +58,15 @@ export function CoursePackageCard({
             </Text>
           </View>
 
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text selectable numberOfLines={2} style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900', lineHeight: 21 }}>
+          <View style={{ flex: 1, gap: 4, alignItems: 'flex-end' }}>
+            <Text selectable numberOfLines={2} style={{ color: colors.ink, fontSize: typography.body, fontWeight: '900', lineHeight: 22, ...rtlText }}>
+              {pkg.titleAr || pkg.title}
+            </Text>
+            <Text selectable numberOfLines={1} style={{ color: colors.inkMuted, fontSize: typography.small, textAlign: 'right' }}>
               {pkg.title}
             </Text>
-            <Text selectable numberOfLines={1} style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'left' }}>
-              {pkg.titleAr}
-            </Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>
-              {pkg.items.length} words & phrases{selectedCount ? ` · ✓ ${selectedCount} selected` : ''}
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>
+              {pkg.items.length} كلمة وعبارة{selectedCount ? ` · مختار ${selectedCount}` : ''}
             </Text>
           </View>
 
@@ -77,42 +78,42 @@ export function CoursePackageCard({
 
       {expanded ? (
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, gap: spacing.md }}>
-          <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm }}>
-              <Chip>World {pkg.unitNumber}</Chip>
-              <Chip>{pkg.items.length} items</Chip>
+          <View style={{ gap: 6, alignItems: 'flex-end' }}>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm }}>
+              <Chip>العالم {pkg.unitNumber}</Chip>
+              <Chip>{pkg.items.length} عنصر</Chip>
             </View>
-            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>What you will learn</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>{pkg.description}</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900', ...rtlText }}>هتتعلم إيه؟</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21, ...rtlText }}>{pkg.description}</Text>
           </View>
 
           {pkg.personalizationPrompt ? (
             <View style={{ padding: spacing.md, gap: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceMuted }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
                 <Text aria-hidden style={{ fontSize: 24 }}>🪪</Text>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>{pkg.personalizationPrompt.title}</Text>
-                  <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18 }}>{pkg.personalizationPrompt.description}</Text>
+                <View style={{ flex: 1, gap: 2, alignItems: 'flex-end' }}>
+                  <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900', ...rtlText }}>{pkg.personalizationPrompt.title}</Text>
+                  <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18, ...rtlText }}>{pkg.personalizationPrompt.description}</Text>
                 </View>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => router.push('/manual-add')} style={({ pressed }) => ({ alignSelf: 'flex-start', paddingVertical: 5, opacity: pressed ? 0.65 : 1 })}>
-                <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900' }}>Add my own word →</Text>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/manual-add')} style={({ pressed }) => ({ alignSelf: 'flex-end', paddingVertical: 5, opacity: pressed ? 0.65 : 1 })}>
+                <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900', ...rtlText }}>ضيف كلمتك بنفسك ←</Text>
               </Pressable>
             </View>
           ) : null}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
             <Pressable
               accessibilityRole="button"
               onPress={() => onToggleVisible(pkg, !allSelected)}
               style={({ pressed }) => ({ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: allSelected ? colors.success : colors.ink, opacity: pressed ? 0.7 : 1 })}
             >
-              <Text selectable style={{ color: colors.surface, fontSize: typography.small, fontWeight: '900' }}>
-                {allSelected ? '✓ All selected' : 'Select all'}
+              <Text selectable style={{ color: colors.surface, fontSize: typography.small, fontWeight: '900', ...rtlText }}>
+                {allSelected ? '✓ اخترت الكل' : 'اختار الكل'}
               </Text>
             </Pressable>
-            <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small }}>
-              Or choose only the words you want.
+            <Text selectable style={{ flex: 1, color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>
+              أو اختار الكلمات اللي تهمك بس.
             </Text>
           </View>
 
@@ -145,10 +146,10 @@ export function CoursePackageCard({
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '800' }}>{item.term}</Text>
-                    <Text selectable numberOfLines={2} style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'left' }}>{item.translation}</Text>
+                    <Text selectable numberOfLines={2} style={{ color: colors.inkMuted, fontSize: typography.small, writingDirection: 'rtl', textAlign: 'right' }}>{item.translation}</Text>
                   </View>
-                  <Text selectable style={{ color: colors.inkMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>
-                    {item.kind === 'PHRASE' ? 'PHRASE' : 'WORD'}
+                  <Text selectable style={{ color: colors.inkMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.5, ...rtlText }}>
+                    {item.kind === 'PHRASE' ? 'عبارة' : 'كلمة'}
                   </Text>
                 </Pressable>
               );
@@ -161,8 +162,8 @@ export function CoursePackageCard({
               onPress={() => setShowAllRewards((current) => !current)}
               style={({ pressed }) => ({ alignSelf: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, opacity: pressed ? 0.65 : 1 })}
             >
-              <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900' }}>
-                {showAllRewards ? 'Show fewer ↑' : `Show all ${pkg.items.length} ↓`}
+              <Text selectable style={{ color: colors.accent, fontSize: typography.small, fontWeight: '900', ...rtlText }}>
+                {showAllRewards ? 'اعرض أقل ↑' : `اعرض كل الـ ${pkg.items.length} ↓`}
               </Text>
             </Pressable>
           ) : null}
