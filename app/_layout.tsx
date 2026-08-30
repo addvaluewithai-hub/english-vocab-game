@@ -28,6 +28,7 @@ export default function RootLayout() {
             <Stack.Screen name="study" options={{ title: 'Study', headerShown: false }} />
             <Stack.Screen name="bank" options={{ title: 'Vocabulary Bank', headerShown: false }} />
             <Stack.Screen name="add" options={{ title: 'Add Vocabulary', headerShown: false }} />
+            <Stack.Screen name="manual-add" options={{ title: 'Quick Add', headerShown: false }} />
             <Stack.Screen name="course-library" options={{ title: 'Course', headerShown: false }} />
             <Stack.Screen name="smart-import" options={{ title: 'Smart Import', headerShown: false }} />
             <Stack.Screen name="image-import" options={{ title: 'Smart Import' }} />
