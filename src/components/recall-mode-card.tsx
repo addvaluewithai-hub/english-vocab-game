@@ -6,11 +6,11 @@ import { PronunciationButton } from './pronunciation-button';
 import { ActionButton, Chip, Surface } from './primitives';
 
 const MODE_LABEL: Record<ReviewMode, string> = {
-  TARGET_TO_MEANING: 'MEANING',
-  MEANING_TO_TARGET: 'REVERSE',
-  CLOZE: 'CONTEXT',
-  LISTENING: 'LISTEN',
-  TYPING: 'TYPE',
+  TARGET_TO_MEANING: 'المعنى',
+  MEANING_TO_TARGET: 'العكس',
+  CLOZE: 'السياق',
+  LISTENING: 'اسمع',
+  TYPING: 'اكتب',
 };
 
 export function RecallModeCard({
@@ -40,7 +40,7 @@ export function RecallModeCard({
       <View style={{ alignItems: 'center' }}><Chip>{MODE_LABEL[mode]}</Chip></View>
       {mode === 'LISTENING' ? (
         <View style={{ alignItems: 'center', gap: spacing.md }}>
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center' }}>{prompt}</Text>
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center', writingDirection: 'rtl' }}>{prompt}</Text>
           <PronunciationButton uri={card.audioUri} compact />
         </View>
       ) : (
@@ -52,7 +52,7 @@ export function RecallModeCard({
       {mode === 'TYPING' ? (
         <View style={{ gap: spacing.sm }}>
           <TextInput
-            accessibilityLabel="Type the word or phrase"
+            accessibilityLabel="اكتب الكلمة أو العبارة"
             value={typedAnswer}
             onChangeText={onTypedAnswer}
             onSubmitEditing={onSubmitTyping}
@@ -60,18 +60,18 @@ export function RecallModeCard({
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="done"
-            placeholder="Type your answer"
+            placeholder="اكتب إجابتك"
             style={{ minHeight: 54, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, backgroundColor: colors.surfaceMuted, color: colors.ink, fontSize: typography.body }}
           />
-          <ActionButton label="Check answer" disabled={disabled || !typedAnswer.trim()} onPress={onSubmitTyping} />
+          <ActionButton label="راجع الإجابة" disabled={disabled || !typedAnswer.trim()} onPress={onSubmitTyping} />
         </View>
       ) : revealed ? (
         <View accessibilityLiveRegion="polite" style={{ alignItems: 'center', gap: spacing.sm }}>
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>Answer</Text>
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, writingDirection: 'rtl' }}>الإجابة</Text>
           <Text selectable style={{ color: colors.ink, fontSize: 34, lineHeight: 45, fontWeight: '800', textAlign: 'center' }}>{answer}</Text>
-          {mode !== 'MEANING_TO_TARGET' ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center' }}>{card.translation}</Text> : null}
+          {mode !== 'MEANING_TO_TARGET' ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, textAlign: 'center', writingDirection: 'rtl' }}>{card.translation}</Text> : null}
         </View>
-      ) : <ActionButton label="Reveal answer" disabled={disabled} onPress={onReveal} />}
+      ) : <ActionButton label="وريني الإجابة" disabled={disabled} onPress={onReveal} />}
     </Surface>
   );
 }
