@@ -18,5 +18,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npx expo export --platform web --output-dir dist/web
+      - run: node scripts/verify-exported-sqlite-wasm.js dist/web
       - run: npx expo export --platform android --output-dir dist/android
       - run: npx expo export --platform ios --output-dir dist/ios

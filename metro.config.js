@@ -7,4 +7,9 @@ if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
 
+config.transformer.assetPlugins = [
+  ...(config.transformer.assetPlugins ?? []),
+  require.resolve('./scripts/metro-cloudflare-wasm-assets.js'),
+];
+
 module.exports = config;
