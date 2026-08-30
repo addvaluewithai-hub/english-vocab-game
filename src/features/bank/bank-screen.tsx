@@ -79,7 +79,7 @@ export function BankScreen() {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="بنحمّل كلماتك" /></View>;
   }
   if (!pair) {
-    return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
+    return <EmptyState title="بنجهز الإنجليزي" body="بنظبط الإنجليزي ومعانيه بالعربي تلقائي أول ما تفتح التطبيق." />;
   }
   if (error) return <EmptyState title="كلماتك مش متاحة دلوقتي" body={error} />;
 
@@ -101,7 +101,7 @@ export function BankScreen() {
               <View style={{ flex: 1, gap: spacing.xs, alignItems: 'flex-end' }}>
                 <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '800', ...rtlText }}>كلماتك</Text>
                 <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>بنك الكلمات</Text>
-                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, ...rtlText }}>ظاهر {items.length} · English → Arabic</Text>
+                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, ...rtlText }}>ظاهر {items.length} · إنجليزي ومعانيه بالعربي</Text>
               </View>
               <Link href="/collections" asChild><ActionButton label="المجموعات" /></Link>
             </View>
