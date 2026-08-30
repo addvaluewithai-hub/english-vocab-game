@@ -25,15 +25,15 @@ export function retentionRate(remembered: number, forgotten: number): number | n
 
 export function buildLearningInsight(input: Pick<LearningStats, 'dueNow' | 'retention30Days' | 'reviewed30Days'>): string {
   if (input.dueNow > 0) {
-    return `${input.dueNow} ${input.dueNow === 1 ? 'card is' : 'cards are'} due now. Reviewing due material first protects retention better than adding more new words.`;
+    return `عندك ${input.dueNow} كارت محتاج مراجعة دلوقتي. راجع المستحق الأول قبل ما تزود كلمات جديدة عشان تثبّت اللي اتعلمته.`;
   }
   if (input.reviewed30Days === 0) {
-    return 'Your bank is ready. Complete a few reviews and this page will start showing retention trends.';
+    return 'بنك كلماتك جاهز. اعمل كام راوند صغير، وبعدها الصفحة دي هتبدأ تورّيك مستوى التثبيت والتقدم.';
   }
   if (input.retention30Days !== null && input.retention30Days < 0.75) {
-    return 'You are caught up, but recent recall is fragile. Short, frequent review sessions are likely to help more than a large new batch.';
+    return 'إنت مخلص اللي عليك، بس التذكر آخر فترة محتاج تثبيت شوية. راوندات قصيرة ومتكررة هتفيد أكتر من دفعة كلمات كبيرة.';
   }
-  return 'You are caught up and recent recall is holding well. Add new material when you are ready, without sacrificing due reviews.';
+  return 'الدنيا ماشية كويس والتذكر ثابت. تقدر تزود كلمات جديدة براحتك من غير ما تهمل المراجعات اللي جاية.';
 }
 
 function isoDaysAgo(now: Date, days: number): string {
