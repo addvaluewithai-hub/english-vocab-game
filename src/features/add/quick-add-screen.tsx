@@ -93,7 +93,7 @@ export function QuickAddScreen() {
   }
 
   if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><Text style={{ color: colors.inkMuted, ...rtlText }}>بنجهزلك الدنيا…</Text></View>;
-  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
+  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="بنظبط الإنجليزي ومعانيه بالعربي تلقائي أول ما تفتح التطبيق." />;
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ width: '100%', maxWidth: 680, alignSelf: 'center', padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl }} style={{ flex: 1, backgroundColor: colors.canvas }}>
@@ -105,7 +105,7 @@ export function QuickAddScreen() {
 
       {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger, ...rtlText }}>{error}</Text></Surface> : null}
 
-      <Field label="الكلمة أو العبارة بالإنجليزي" value={term} onChangeText={(value) => { setTerm(value); setMessage(null); }} placeholder="e.g. look forward to" />
+      <Field label="الكلمة أو العبارة بالإنجليزي" value={term} onChangeText={(value) => { setTerm(value); setMessage(null); }} placeholder="مثلاً: look forward to" />
 
       <View accessibilityRole="radiogroup" style={{ flexDirection: 'row-reverse', gap: spacing.sm }}>
         {(['WORD', 'PHRASE'] as const).map((value) => {
@@ -131,7 +131,7 @@ export function QuickAddScreen() {
       </Surface>
 
       <Field label="المعنى بالعربي" value={translation} onChangeText={setTranslation} placeholder="المعنى" rtl />
-      <Field label="مثال" value={context} onChangeText={setContext} placeholder="A natural sentence using the word" multiline />
+      <Field label="مثال بالإنجليزي" value={context} onChangeText={setContext} placeholder="جملة طبيعية تستخدم فيها الكلمة" multiline />
 
       <Pressable onPress={() => setShowMore((value) => !value)}>
         <Text style={{ color: colors.accent, fontSize: typography.label, fontWeight: '800', ...rtlText }}>{showMore ? 'اخفي التفاصيل الزيادة' : 'وريني تفاصيل أكتر'}</Text>
@@ -140,7 +140,7 @@ export function QuickAddScreen() {
       {showMore ? (
         <View style={{ gap: spacing.md }}>
           <Field label="التعريف بالإنجليزي" value={definition} onChangeText={setDefinition} multiline />
-          <Field label="نوع الكلمة" value={partOfSpeech} onChangeText={setPartOfSpeech} placeholder="noun, verb, adjective…" />
+          <Field label="نوع الكلمة" value={partOfSpeech} onChangeText={setPartOfSpeech} placeholder="مثلاً: noun أو verb أو adjective" />
           <Field label="ترجمة المثال" value={exampleTranslation} onChangeText={setExampleTranslation} multiline rtl />
         </View>
       ) : null}
