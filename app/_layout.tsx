@@ -24,21 +24,21 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: colors.canvas },
             }}
           >
-            <Stack.Screen name="index" options={{ title: 'Home', headerShown: false }} />
-            <Stack.Screen name="study" options={{ title: 'Study', headerShown: false }} />
-            <Stack.Screen name="bank" options={{ title: 'Vocabulary Bank', headerShown: false }} />
-            <Stack.Screen name="add" options={{ title: 'Add Vocabulary', headerShown: false }} />
-            <Stack.Screen name="manual-add" options={{ title: 'Quick Add', headerShown: false }} />
-            <Stack.Screen name="course-library" options={{ title: 'Course', headerShown: false }} />
-            <Stack.Screen name="smart-import" options={{ title: 'Smart Import', headerShown: false }} />
-            <Stack.Screen name="image-import" options={{ title: 'Smart Import' }} />
-            <Stack.Screen name="vocabulary/[cardId]" options={{ title: 'Vocabulary' }} />
-            <Stack.Screen name="collections" options={{ title: 'Collections' }} />
-            <Stack.Screen name="imports" options={{ title: 'Smart Imports' }} />
-            <Stack.Screen name="import-staging" options={{ title: 'Review Import' }} />
-            <Stack.Screen name="auth" options={{ title: 'Account', presentation: 'modal' }} />
-            <Stack.Screen name="stats" options={{ title: 'Stats' }} />
-            <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+            <Stack.Screen name="index" options={{ title: 'الرئيسية', headerShown: false }} />
+            <Stack.Screen name="study" options={{ title: 'ذاكر', headerShown: false }} />
+            <Stack.Screen name="bank" options={{ title: 'كلماتي', headerShown: false }} />
+            <Stack.Screen name="add" options={{ title: 'ضيف كلمات', headerShown: false }} />
+            <Stack.Screen name="manual-add" options={{ title: 'ضيف بسرعة', headerShown: false }} />
+            <Stack.Screen name="course-library" options={{ title: 'الكورس', headerShown: false }} />
+            <Stack.Screen name="smart-import" options={{ title: 'إضافة ذكية', headerShown: false }} />
+            <Stack.Screen name="image-import" options={{ title: 'إضافة ذكية' }} />
+            <Stack.Screen name="vocabulary/[cardId]" options={{ title: 'تفاصيل الكلمة' }} />
+            <Stack.Screen name="collections" options={{ title: 'المجموعات' }} />
+            <Stack.Screen name="imports" options={{ title: 'الإضافات الذكية' }} />
+            <Stack.Screen name="import-staging" options={{ title: 'راجع الكلمات' }} />
+            <Stack.Screen name="auth" options={{ title: 'الحساب', presentation: 'modal' }} />
+            <Stack.Screen name="stats" options={{ title: 'تقدمك' }} />
+            <Stack.Screen name="settings" options={{ title: 'الإعدادات' }} />
           </Stack>
           <AppBottomNav />
         </View>
