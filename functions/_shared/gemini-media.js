@@ -4,6 +4,7 @@ export const MEDIA_MODEL_CHAIN = [
 ];
 
 const RETRYABLE_STATUSES = new Set([404, 408, 409, 429, 500, 502, 503, 504]);
+const DEFAULT_ATTEMPT_TIMEOUT_MS = 8_000;
 
 function extractGenerateText(payload) {
   return payload?.candidates?.[0]?.content?.parts
@@ -35,10 +36,20 @@ function extractInteractionText(payload) {
   return found.join('').trim();
 }
 
-async function callGenerateContent({ apiKey, model, parts, maxOutputTokens, tools }) {
+function attemptSignal(timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+  return {
+    signal: controller.signal,
+    dispose() { clearTimeout(timer); },
+  };
+}
+
+async function callGenerateContent({ apiKey, model, parts, maxOutputTokens, tools, signal }) {
   const startedAt = Date.now();
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
+    signal,
     headers: {
       'content-type': 'application/json',
       'x-goog-api-key': apiKey,
@@ -58,10 +69,11 @@ async function callGenerateContent({ apiKey, model, parts, maxOutputTokens, tool
   };
 }
 
-async function callInteraction({ apiKey, model, input }) {
+async function callInteraction({ apiKey, model, input, signal }) {
   const startedAt = Date.now();
   const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
     method: 'POST',
+    signal,
     headers: {
       'content-type': 'application/json',
       'x-goog-api-key': apiKey,
@@ -77,11 +89,13 @@ async function callInteraction({ apiKey, model, input }) {
   };
 }
 
-async function routeChain(call, acceptText) {
+async function routeChain(call, acceptText, attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS) {
   const attempts = [];
   for (const model of MEDIA_MODEL_CHAIN) {
+    const deadline = attemptSignal(attemptTimeoutMs);
+    const startedAt = Date.now();
     try {
-      const result = await call(model);
+      const result = await call(model, deadline.signal);
       const accepted = result.ok && Boolean(result.text) && acceptText(result.text);
       attempts.push({
         model,
@@ -97,9 +111,11 @@ async function routeChain(call, acceptText) {
       attempts.push({
         model,
         status: error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'network-error',
-        latencyMs: 0,
+        latencyMs: Date.now() - startedAt,
         ok: false,
       });
+    } finally {
+      deadline.dispose();
     }
   }
   return { ok: false, error: 'all-models-unavailable', attempts };
@@ -108,7 +124,7 @@ async function routeChain(call, acceptText) {
 export async function routeGeminiMedia({ apiKey, parts, maxOutputTokens = 1600, acceptText = () => true }) {
   if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
   return routeChain(
-    (model) => callGenerateContent({ apiKey, model, parts, maxOutputTokens }),
+    (model, signal) => callGenerateContent({ apiKey, model, parts, maxOutputTokens, signal }),
     acceptText,
   );
 }
@@ -116,12 +132,13 @@ export async function routeGeminiMedia({ apiKey, parts, maxOutputTokens = 1600, 
 export async function routeGeminiUrl({ apiKey, url, prompt, maxOutputTokens = 1800, acceptText = () => true }) {
   if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
   return routeChain(
-    (model) => callGenerateContent({
+    (model, signal) => callGenerateContent({
       apiKey,
       model,
       parts: [{ text: `${prompt}\n\nPUBLIC SOURCE URL:\n${url}` }],
       maxOutputTokens,
       tools: [{ url_context: {} }],
+      signal,
     }),
     acceptText,
   );
@@ -130,14 +147,16 @@ export async function routeGeminiUrl({ apiKey, url, prompt, maxOutputTokens = 18
 export async function routeGeminiYouTube({ apiKey, url, prompt, acceptText = () => true }) {
   if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
   return routeChain(
-    (model) => callInteraction({
+    (model, signal) => callInteraction({
       apiKey,
       model,
       input: [
         { type: 'video', uri: url },
         { type: 'text', text: prompt },
       ],
+      signal,
     }),
     acceptText,
+    12_000,
   );
 }
