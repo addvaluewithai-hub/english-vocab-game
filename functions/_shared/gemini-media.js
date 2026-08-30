@@ -1,8 +1,6 @@
 export const MEDIA_MODEL_CHAIN = [
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
   'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
 ];
 
 export const MEDIA_ATTEMPT_TIMEOUT_MS = 30_000;
@@ -40,11 +38,6 @@ function extractInteractionText(payload) {
   return found.join('').trim();
 }
 
-function providerMessage(payload) {
-  const message = payload?.error?.message;
-  return typeof message === 'string' ? message.slice(0, 240) : '';
-}
-
 function attemptSignal(timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
@@ -66,7 +59,7 @@ async function callGenerateContent({ apiKey, model, parts, maxOutputTokens, tool
     body: JSON.stringify({
       contents: [{ role: 'user', parts }],
       ...(tools?.length ? { tools } : {}),
-      generationConfig: { maxOutputTokens },
+      generationConfig: { maxOutputTokens, temperature: 0.1 },
     }),
   });
   const payload = await response.json().catch(() => ({}));
@@ -74,7 +67,6 @@ async function callGenerateContent({ apiKey, model, parts, maxOutputTokens, tool
     ok: response.ok,
     status: response.status,
     text: extractGenerateText(payload),
-    providerMessage: providerMessage(payload),
     latencyMs: Date.now() - startedAt,
   };
 }
@@ -95,21 +87,13 @@ async function callInteraction({ apiKey, model, input, signal }) {
     ok: response.ok,
     status: response.status,
     text: extractInteractionText(payload),
-    providerMessage: providerMessage(payload),
     latencyMs: Date.now() - startedAt,
   };
 }
 
-function classifyFailure(attempts) {
-  if (attempts.some((attempt) => attempt.status === 429)) return 'rate-limited';
-  if (attempts.some((attempt) => attempt.status === 'timeout')) return 'media-timeout';
-  if (attempts.length && attempts.every((attempt) => attempt.status === 404)) return 'model-not-available';
-  return 'all-models-unavailable';
-}
-
-async function routeChain(call, acceptText, attemptTimeoutMs = MEDIA_ATTEMPT_TIMEOUT_MS, models = MEDIA_MODEL_CHAIN) {
+async function routeChain(call, acceptText, attemptTimeoutMs = MEDIA_ATTEMPT_TIMEOUT_MS) {
   const attempts = [];
-  for (const model of models) {
+  for (const model of MEDIA_MODEL_CHAIN) {
     const deadline = attemptSignal(attemptTimeoutMs);
     const startedAt = Date.now();
     try {
@@ -120,7 +104,6 @@ async function routeChain(call, acceptText, attemptTimeoutMs = MEDIA_ATTEMPT_TIM
         status: result.ok && !accepted ? 'invalid-output' : result.status,
         latencyMs: result.latencyMs,
         ok: accepted,
-        ...(result.providerMessage ? { providerMessage: result.providerMessage } : {}),
       });
       if (accepted) return { ok: true, model, text: result.text, fallbackCount: attempts.length - 1, attempts };
       if (!result.ok && !RETRYABLE_STATUSES.has(result.status)) {
@@ -137,7 +120,7 @@ async function routeChain(call, acceptText, attemptTimeoutMs = MEDIA_ATTEMPT_TIM
       deadline.dispose();
     }
   }
-  return { ok: false, error: classifyFailure(attempts), attempts };
+  return { ok: false, error: 'all-models-unavailable', attempts };
 }
 
 export async function routeGeminiMedia({ apiKey, parts, maxOutputTokens = 1600, acceptText = () => true }) {
@@ -145,24 +128,6 @@ export async function routeGeminiMedia({ apiKey, parts, maxOutputTokens = 1600, 
   return routeChain(
     (model, signal) => callGenerateContent({ apiKey, model, parts, maxOutputTokens, signal }),
     acceptText,
-  );
-}
-
-export async function routeGeminiDocument({ apiKey, data, prompt, acceptText = () => true }) {
-  if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
-  return routeChain(
-    (model, signal) => callInteraction({
-      apiKey,
-      model,
-      input: [
-        { type: 'document', data, mime_type: 'application/pdf' },
-        { type: 'text', text: prompt },
-      ],
-      signal,
-    }),
-    acceptText,
-    MEDIA_ATTEMPT_TIMEOUT_MS,
-    ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'],
   );
 }
 
@@ -188,13 +153,12 @@ export async function routeGeminiYouTube({ apiKey, url, prompt, acceptText = () 
       apiKey,
       model,
       input: [
-        { type: 'text', text: prompt },
         { type: 'video', uri: url },
+        { type: 'text', text: prompt },
       ],
       signal,
     }),
     acceptText,
     YOUTUBE_ATTEMPT_TIMEOUT_MS,
-    ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'],
   );
 }
