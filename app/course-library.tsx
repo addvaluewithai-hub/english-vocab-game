@@ -1,5 +1,5 @@
-import { CourseLibraryScreen } from '@/features/curriculum/course-library-screen';
+import { CourseHubScreen } from '@/features/curriculum/course-hub-screen';
 
 export default function CourseLibraryRoute() {
-  return <CourseLibraryScreen />;
+  return <CourseHubScreen />;
 }
