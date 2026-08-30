@@ -1,6 +1,6 @@
 # Cloudflare Pages
 
-Vocab Flow uses Cloudflare Pages for the web app and a small Pages Function for Gemini vocabulary enrichment.
+Vocab Flow uses Cloudflare Pages for the static Expo web app plus lightweight Pages Functions for Gemini vocabulary enrichment and Smart Import.
 
 ## Pages build settings
 
@@ -14,35 +14,59 @@ The Expo app uses `web.output = static`. Files in `public/` are copied into the 
 
 ## Gemini secret
 
-Configure this secret in both Preview and Production environments:
+Configure this encrypted secret in both Preview and Production environments:
 
 - `GEMINI_API_KEY`
 
 Never prefix the Gemini key with `EXPO_PUBLIC_`; it must remain server-side.
 
-## AI endpoint
+## Gemini endpoints
 
-`POST /api/enrich-word`
+### `POST /api/enrich-word`
 
-Body:
+Used by manual Add Vocabulary. It fills the Arabic meaning, concise English definition, part of speech, natural English example sentence, and Arabic example translation.
 
-```json
-{
-  "term": "reluctant",
-  "kind": "WORD"
-}
-```
+### `POST /api/discover-vocab`
 
-The endpoint returns an editable Arabic meaning, English definition, part of speech, English example sentence, Arabic example translation, and the model that succeeded.
+First pass of Smart Import. It discovers useful English words/phrases only, before spending model work on translations.
 
-The model fallback chain is:
+Supported sources:
+
+- `TEXT` — pasted text/list/notes
+- `PHOTO` — one to three inline images
+- `PDF` — uploaded PDF quick path
+- `YOUTUBE` — public YouTube URL
+- `URL` — public web page or public linked document through Gemini URL Context
+
+Text discovery uses the full text fallback chain. Images/PDF/URL/YouTube use Gemini Flash-Lite multimodal/tool routing rather than Gemma media assumptions.
+
+### `POST /api/enrich-vocab`
+
+Second pass of Smart Import. The app sends only the vocabulary selected by the learner. Items are enriched in batches with Arabic meaning, English definition, part of speech, natural English example, and Arabic example translation. The result then enters the existing editable Review queue before Bank insertion.
+
+## Model routing
+
+Text tasks use:
 
 1. `gemma-4-26b-a4b-it`
 2. `gemma-4-31b-it`
 3. `gemini-3.1-flash-lite`
 4. `gemini-3.5-flash-lite`
 
-Retry/fallback is used for quota/rate limits, transient provider errors, unavailable models, timeouts/network failures, and invalid structured output. The endpoint also applies a same-origin check, request-size cap, and a best-effort per-client request limit.
+Multimodal/tool tasks use:
+
+1. `gemini-3.1-flash-lite`
+2. `gemini-3.5-flash-lite`
+
+Retry/fallback is used for quota/rate limits, transient provider errors, unavailable models, network failures, and invalid structured output. Public AI endpoints also apply same-origin checks, request-size caps, and best-effort per-client request limits.
+
+## Native builds
+
+The web app can call `/api/*` on the same origin. Android/iOS builds need the Cloudflare Pages origin configured as:
+
+`EXPO_PUBLIC_API_BASE_URL=https://<your-pages-domain>`
+
+Do not put `GEMINI_API_KEY` in a native build.
 
 ## Preview branches
 
