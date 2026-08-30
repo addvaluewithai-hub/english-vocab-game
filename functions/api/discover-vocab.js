@@ -1,5 +1,5 @@
 import { cleanText, json, routeGemini } from '../_shared/gemini-router.js';
-import { routeGeminiMedia, routeGeminiYouTube } from '../_shared/gemini-media.js';
+import { routeGeminiMedia, routeGeminiUrl, routeGeminiYouTube } from '../_shared/gemini-media.js';
 import { checkBestEffortRateLimit, isSameOriginRequest } from '../_shared/request-guard.js';
 
 const MAX_CANDIDATES = 80;
@@ -61,6 +61,20 @@ function discoveryPrompt(sourceLabel) {
     'Return only JSON in this exact shape:',
     '{"candidates":[{"term":"...","kind":"WORD|PHRASE","contextHint":"...","usefulnessScore":0.0,"confidenceScore":0.0}]}',
   ].join('\n');
+}
+
+function validPublicHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    const host = url.hostname.toLowerCase();
+    return host !== 'localhost'
+      && host !== '127.0.0.1'
+      && host !== '::1'
+      && !host.endsWith('.local');
+  } catch {
+    return false;
+  }
 }
 
 function validYoutubeUrl(value) {
@@ -155,6 +169,16 @@ export async function onRequestPost(context) {
       prompt: discoveryPrompt('public YouTube video, using both spoken audio and useful visible text'),
       acceptText: (value) => Boolean(normalizeCandidates(value)),
     });
+  } else if (sourceType === 'URL') {
+    const url = cleanText(body?.url, 1000);
+    if (!validPublicHttpUrl(url) || validYoutubeUrl(url)) return json({ error: 'public-url-required' }, 400);
+    result = await routeGeminiUrl({
+      apiKey: context.env.GEMINI_API_KEY,
+      url,
+      prompt: discoveryPrompt('public web page or linked document'),
+      maxOutputTokens: 1800,
+      acceptText: (value) => Boolean(normalizeCandidates(value)),
+    });
   } else {
     return json({ error: 'unsupported-source-type' }, 400);
   }
@@ -170,5 +194,5 @@ export async function onRequestPost(context) {
 }
 
 export function onRequestGet() {
-  return json({ ok: true, service: 'gemini-vocabulary-discovery', supported: ['TEXT', 'PHOTO', 'PDF', 'YOUTUBE'] });
+  return json({ ok: true, service: 'gemini-vocabulary-discovery', supported: ['TEXT', 'PHOTO', 'PDF', 'YOUTUBE', 'URL'] });
 }
