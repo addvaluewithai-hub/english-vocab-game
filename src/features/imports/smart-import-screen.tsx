@@ -22,6 +22,7 @@ const SOURCES: { type: GeminiImportSourceType; icon: string; label: string; hint
   { type: 'PHOTO', icon: '🖼️', label: 'Images', hint: 'Up to 3 screenshots or photos' },
   { type: 'PDF', icon: '📄', label: 'PDF', hint: 'Let Gemini read the document' },
   { type: 'YOUTUBE', icon: '▶️', label: 'YouTube', hint: 'Public video URL' },
+  { type: 'URL', icon: '🌐', label: 'Web URL', hint: 'Public article, page, or linked PDF' },
 ];
 
 type SelectedImage = {
@@ -54,10 +55,18 @@ async function pdfAssetToBase64(asset: DocumentPicker.DocumentPickerAsset): Prom
   return FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
 }
 
-function sourceTitle(type: GeminiImportSourceType, text: string, youtubeUrl: string, pdf: SelectedPdf | null, images: SelectedImage[]): string {
+function sourceTitle(
+  type: GeminiImportSourceType,
+  text: string,
+  youtubeUrl: string,
+  webUrl: string,
+  pdf: SelectedPdf | null,
+  images: SelectedImage[],
+): string {
   if (type === 'TEXT') return `Text · ${text.trim().slice(0, 48) || 'pasted vocabulary'}`;
   if (type === 'PDF') return `PDF · ${pdf?.name ?? 'document'}`;
   if (type === 'YOUTUBE') return `YouTube · ${youtubeUrl.trim().slice(0, 72)}`;
+  if (type === 'URL') return `Web · ${webUrl.trim().slice(0, 72)}`;
   return images.length === 1 ? `Photo · ${images[0]?.name ?? 'image'}` : `Photos · ${images.length} images`;
 }
 
@@ -72,6 +81,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
   const [sourceType, setSourceType] = useState<GeminiImportSourceType>(initialSourceType);
   const [text, setText] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [webUrl, setWebUrl] = useState('');
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [pdf, setPdf] = useState<SelectedPdf | null>(null);
   const [candidates, setCandidates] = useState<DiscoveredVocabulary[]>([]);
@@ -164,9 +174,12 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       } else if (sourceType === 'PDF') {
         if (!pdf) throw new Error('Choose a PDF first.');
         next = await discoverVocabulary({ sourceType, file: { name: pdf.name, data: pdf.data } });
-      } else {
+      } else if (sourceType === 'YOUTUBE') {
         if (!youtubeUrl.trim()) throw new Error('Paste a public YouTube URL first.');
         next = await discoverVocabulary({ sourceType, url: youtubeUrl.trim() });
+      } else {
+        if (!webUrl.trim()) throw new Error('Paste a public web URL first.');
+        next = await discoverVocabulary({ sourceType, url: webUrl.trim() });
       }
       setCandidates(next);
       setSelected(new Set(next.filter((item) => item.usefulnessScore >= 0.6).map((item) => item.term.toLocaleLowerCase())));
@@ -186,7 +199,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       await new ImportStagingService(sqlite).createBatch(
         pair.id,
         sourceTypeForBatch(sourceType),
-        sourceTitle(sourceType, text, youtubeUrl, pdf, images),
+        sourceTitle(sourceType, text, youtubeUrl, webUrl, pdf, images),
         enriched,
       );
       router.replace('/import-staging');
@@ -205,7 +218,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       <Surface style={{ padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.ink }}>
         <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', letterSpacing: 1 }}>GEMINI SMART IMPORT</Text>
         <Text accessibilityRole="header" selectable style={{ color: colors.surface, fontSize: 30, lineHeight: 35, fontWeight: '900' }}>Bring your own English</Text>
-        <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Gemini finds the useful vocabulary first. You choose what matters. Only then do we translate it and create examples.</Text>
+        <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Gemini finds useful vocabulary first. You choose what matters. Only then do we translate it and create examples.</Text>
       </Surface>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
@@ -227,6 +240,13 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
 
       {sourceType === 'YOUTUBE' ? (
         <TextInput accessibilityLabel="YouTube URL" value={youtubeUrl} onChangeText={(value) => { setYoutubeUrl(value); setCandidates([]); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://www.youtube.com/watch?v=…" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
+      ) : null}
+
+      {sourceType === 'URL' ? (
+        <View style={{ gap: spacing.sm }}>
+          <TextInput accessibilityLabel="Public web URL" value={webUrl} onChangeText={(value) => { setWebUrl(value); setCandidates([]); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://example.com/article" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Works with public pages and direct public PDF/image URLs. Login-required and paywalled pages cannot be read by Gemini URL Context.</Text>
+        </View>
       ) : null}
 
       {sourceType === 'PDF' ? (
