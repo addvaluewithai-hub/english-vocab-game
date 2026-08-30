@@ -19,7 +19,7 @@
       }
     },
     "web": {
-      "output": "server"
+      "output": "static"
     },
     "plugins": [
       [
