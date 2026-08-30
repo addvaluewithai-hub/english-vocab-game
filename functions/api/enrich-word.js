@@ -1,4 +1,5 @@
 import { cleanText, json, routeGemini } from '../_shared/gemini-router.js';
+import { checkBestEffortRateLimit, isSameOriginRequest } from '../_shared/request-guard.js';
 
 function parseJsonObject(text) {
   const trimmed = text.trim();
@@ -33,6 +34,18 @@ function parseEnrichment(text) {
 }
 
 export async function onRequestPost(context) {
+  if (!isSameOriginRequest(context.request)) return json({ error: 'origin-not-allowed' }, 403);
+
+  const declaredLength = Number(context.request.headers.get('content-length') || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > 4_096) return json({ error: 'request-too-large' }, 413);
+
+  const rate = checkBestEffortRateLimit(context.request, {
+    namespace: 'vocabulary-enrichment',
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) return json({ error: 'too-many-requests', retryAt: rate.resetAt }, 429);
+
   let body;
   try {
     body = await context.request.json();
