@@ -20,13 +20,13 @@ export async function enrichVocabularyWithGemini(term: string, kind: TermKind): 
 
   const payload = await response.json().catch(() => ({})) as Partial<VocabularyEnrichment> & { error?: string };
   if (!response.ok) {
-    if (payload.error === 'gemini-not-configured') throw new Error('Gemini is not configured on this deployment yet.');
-    if (payload.error === 'all-models-unavailable') throw new Error('Gemini is busy right now. Try again in a moment.');
-    throw new Error('Could not fill this word with Gemini.');
+    if (payload.error === 'gemini-not-configured') throw new Error('Gemini لسه مش متظبط على النسخة دي.');
+    if (payload.error === 'all-models-unavailable') throw new Error('Gemini مش متاح دلوقتي. جرّب كمان شوية.');
+    throw new Error('مقدرناش نكمل الكلمة بـ Gemini دلوقتي.');
   }
 
   if (!payload.translation || !payload.contextSentence || !payload.model) {
-    throw new Error('Gemini returned an incomplete suggestion. Try again.');
+    throw new Error('Gemini رجّع بيانات ناقصة. جرّب تاني.');
   }
 
   return {
