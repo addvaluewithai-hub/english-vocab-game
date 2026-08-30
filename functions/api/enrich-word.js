@@ -28,6 +28,10 @@ function normalizePayload(value) {
   return { translation, definition, contextSentence, exampleTranslation, partOfSpeech };
 }
 
+function parseEnrichment(text) {
+  return normalizePayload(parseJsonObject(text));
+}
+
 export async function onRequestPost(context) {
   let body;
   try {
@@ -59,6 +63,7 @@ export async function onRequestPost(context) {
     prompt,
     task: 'vocabulary-enrichment',
     maxOutputTokens: 420,
+    acceptText: (text) => Boolean(parseEnrichment(text)),
   });
 
   if (!result.ok) {
@@ -70,11 +75,8 @@ export async function onRequestPost(context) {
     return json({ error: result.error, attempts: result.attempts }, result.status === 401 || result.status === 403 ? result.status : 503);
   }
 
-  const parsed = normalizePayload(parseJsonObject(result.text));
-  if (!parsed) {
-    console.warn('Gemini returned invalid vocabulary JSON', { model: result.model, fallbackCount: result.fallbackCount });
-    return json({ error: 'invalid-model-output', model: result.model }, 502);
-  }
+  const parsed = parseEnrichment(result.text);
+  if (!parsed) return json({ error: 'invalid-model-output' }, 502);
 
   return json({
     ...parsed,
