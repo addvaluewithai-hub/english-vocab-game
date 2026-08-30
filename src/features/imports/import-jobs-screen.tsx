@@ -55,23 +55,26 @@ export function ImportJobsScreen() {
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ gap: spacing.xs }}>
         <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Smart imports</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Photo import is live now. Other source types stay parked until the next import phase.</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Give Gemini text, images, a PDF, or a public YouTube video. It finds vocabulary first, then you choose what deserves a card.</Text>
       </View>
 
       <Surface style={{ padding: spacing.lg, gap: spacing.md, backgroundColor: colors.ink }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-          <Text aria-hidden style={{ fontSize: 38 }}>📸</Text>
+          <Text aria-hidden style={{ fontSize: 38 }}>✨</Text>
           <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text selectable style={{ color: colors.surface, fontSize: 21, fontWeight: '900' }}>Import from images</Text>
-            <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>AI reads visible English, translates it to Arabic, adds a definition and example sentence, then sends everything to Review.</Text>
+            <Text selectable style={{ color: colors.surface, fontSize: 21, fontWeight: '900' }}>Gemini Smart Import</Text>
+            <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Text · Images · PDF · YouTube. Discovery happens before translation, so AI work is spent only on the vocabulary you select.</Text>
           </View>
         </View>
-        <Link href="/image-import" asChild><ActionButton label="Choose image" /></Link>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          <Chip>✍️ Text</Chip><Chip>🖼️ Images</Chip><Chip>📄 PDF</Chip><Chip>▶️ YouTube</Chip>
+        </View>
+        <Link href="/smart-import" asChild><ActionButton label="Start smart import" /></Link>
       </Surface>
 
       <Surface style={{ padding: spacing.md, gap: spacing.xs }}>
-        <Text selectable style={{ color: colors.ink, fontWeight: '900' }}>Later</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 20 }}>Text · PDF · YouTube · URL. The durable job framework stays in place, but those adapters are intentionally deferred.</Text>
+        <Text selectable style={{ color: colors.ink, fontWeight: '900' }}>How it works</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 20 }}>1. Gemini discovers useful words and phrases. 2. You choose. 3. Gemini translates only your selection and writes examples. 4. Final editable review. 5. Add to Bank.</Text>
       </Surface>
 
       {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted }}>{message}</Text></Surface> : null}
