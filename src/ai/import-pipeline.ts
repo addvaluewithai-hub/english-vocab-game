@@ -1,7 +1,7 @@
 import type { TermKind } from '@/domain/types';
 import type { ProposedVocabulary } from '@/imports/staging';
 
-export type GeminiImportSourceType = 'TEXT' | 'PHOTO' | 'PDF' | 'YOUTUBE';
+export type GeminiImportSourceType = 'TEXT' | 'PHOTO' | 'PDF' | 'YOUTUBE' | 'URL';
 
 export interface DiscoveredVocabulary {
   term: string;
@@ -15,7 +15,8 @@ export type DiscoveryInput =
   | { sourceType: 'TEXT'; text: string }
   | { sourceType: 'PHOTO'; images: { mimeType: string; data: string }[] }
   | { sourceType: 'PDF'; file: { name: string; data: string } }
-  | { sourceType: 'YOUTUBE'; url: string };
+  | { sourceType: 'YOUTUBE'; url: string }
+  | { sourceType: 'URL'; url: string };
 
 function apiUrl(path: string): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
@@ -34,6 +35,7 @@ function errorMessage(body: Record<string, unknown>, fallback: string): string {
     if (body.error === 'gemini-not-configured') return 'Gemini is not configured on the server yet.';
     if (body.error === 'too-many-requests') return 'Gemini is busy for this device. Try again in a minute.';
     if (body.error === 'media-too-large' || body.error === 'request-too-large') return 'That source is too large for the quick import path. Use a smaller file or fewer images.';
+    if (body.error === 'public-url-required') return 'Paste a public web URL that does not require a login.';
     if (body.error === 'all-models-unavailable') return 'All Gemini models are temporarily busy. Try again shortly.';
     return body.error.replaceAll('-', ' ');
   }
