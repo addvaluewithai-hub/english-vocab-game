@@ -82,7 +82,7 @@ export function CoursePackageCard({
               <Chip>World {pkg.unitNumber}</Chip>
               <Chip>{pkg.items.length} items</Chip>
             </View>
-            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>What you'll learn</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: typography.label, fontWeight: '900' }}>What you will learn</Text>
             <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>{pkg.description}</Text>
           </View>
 
