@@ -34,8 +34,8 @@ function CandidateEditor({ candidate, service, reload }: { candidate: StagedCand
       </View>
       <TextInput accessibilityLabel="الكلمة" value={term} onChangeText={setTerm} onBlur={() => void saveEdits()} style={{ minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.ink, fontSize: 20, fontWeight: '800' }} />
       <TextInput accessibilityLabel="المعنى" value={translation} onChangeText={setTranslation} onBlur={() => void saveEdits()} style={{ minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.ink, fontSize: typography.body, ...rtlText }} />
-      <TextInput accessibilityLabel="التعريف" value={definition} onChangeText={setDefinition} onBlur={() => void saveEdits()} placeholder="English definition" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 64, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, color: colors.inkMuted }} />
-      <TextInput accessibilityLabel="المثال" value={context} onChangeText={setContext} onBlur={() => void saveEdits()} placeholder="English example sentence" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 72, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, color: colors.inkMuted }} />
+      <TextInput accessibilityLabel="التعريف" value={definition} onChangeText={setDefinition} onBlur={() => void saveEdits()} placeholder="تعريف قصير بالإنجليزي" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 64, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, color: colors.inkMuted }} />
+      <TextInput accessibilityLabel="المثال" value={context} onChangeText={setContext} onBlur={() => void saveEdits()} placeholder="مثال طبيعي بالإنجليزي" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 72, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, color: colors.inkMuted }} />
       <TextInput accessibilityLabel="ترجمة المثال" value={exampleTranslation} onChangeText={setExampleTranslation} onBlur={() => void saveEdits()} placeholder="ترجمة المثال بالعربي" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 64, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, color: colors.inkMuted, ...rtlText }} />
       {candidate.duplicateKind !== 'NONE' ? <Text selectable style={{ color: colors.danger, fontWeight: '700', ...rtlText }}>{candidate.duplicateKind === 'EXACT' ? 'الكلمة موجودة عندك بالفعل، فشيلناها من الاختيار تلقائي.' : 'الكلمة موجودة، بس ممكن يكون ده معنى مختلف.'}</Text> : null}
       <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -76,7 +76,7 @@ export function ImportStagingScreen() {
     return () => { cancelled = true; };
   }, [pair, sqlite]);
 
-  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
+  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="بنظبط الإنجليزي ومعانيه بالعربي تلقائي أول ما تفتح التطبيق." />;
   const service = new ImportStagingService(sqlite);
   if (!batch) {
     return <EmptyState title="مفيش كلمات مستنية مراجعة" body="النص، الصور، PDF، يوتيوب واللينكات كلهم بيروحوا لنفس شاشة المراجعة دي." action={<ActionButton label="ابدأ إضافة ذكية" onPress={() => router.replace('/smart-import')} />} />;
@@ -85,10 +85,13 @@ export function ImportStagingScreen() {
   const selectedCount = candidates.filter((item) => item.selected && item.duplicateKind !== 'EXACT').length;
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}><Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800', ...rtlText }}>راجع قبل ما تضيف</Text><Text selectable style={{ color: colors.inkMuted, ...rtlText }}>{batch.sourceTitle ?? batch.sourceType} · اقتراحات Gemini تفضل قابلة للتعديل لحد ما تضيفها لكلماتك.</Text></View>
+      <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
+        <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>راجع قبل ما تضيف</Text>
+        <Text selectable style={{ color: colors.inkMuted, ...rtlText }}>{batch.sourceTitle ?? batch.sourceType} · اقتراحات Gemini قابلة للتعديل لحد آخر لحظة.</Text>
+      </View>
       {message ? <Surface style={{ padding: spacing.md }}><Text style={{ color: colors.success, ...rtlText }}>{message}</Text></Surface> : null}
       {candidates.map((candidate) => <CandidateEditor key={candidate.id} candidate={candidate} service={service} reload={reload} />)}
-      <ActionButton label={`ضيف ${selectedCount} كلمة لكلماتي`} disabled={selectedCount === 0} onPress={() => void service.approveSelected(batch).then((count) => { setMessage(`اتضاف ${count} عنصر لكلماتك.`); return reload(); }).then(() => router.replace('/bank'))} />
+      <ActionButton label={`ضيف ${selectedCount} كلمة لكلماتي`} disabled={selectedCount === 0} onPress={() => void service.approveSelected(batch).then((count) => { setMessage(`تمام، اتضاف ${count} عنصر لكلماتك.`); return reload(); }).then(() => router.replace('/bank'))} />
     </ScrollView>
   );
 }
