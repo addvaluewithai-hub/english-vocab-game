@@ -32,7 +32,7 @@ export function HomeScreen() {
       style={{ flex: 1, backgroundColor: colors.canvas }}
     >
       <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '800', ...rtlText }}>VOCAB FLOW</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '800', ...rtlText }}>اتعلم إنجليزي بطريقتك</Text>
         <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: 34, lineHeight: 42, fontWeight: '900', ...rtlText }}>عايز تعمل إيه دلوقتي؟</Text>
         <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 26, ...rtlText }}>ذاكر، خد كلمات من الكورس، أو دخل كلمات من عندك. كله بيروح لنفس بنك الكلمات.</Text>
       </View>
