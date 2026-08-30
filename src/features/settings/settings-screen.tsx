@@ -18,8 +18,18 @@ import { setActiveStudySession } from '@/study/session-store';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 import { ReminderSettingsCard } from './reminder-settings-card';
 
-function LanguageInput({ label, code, setCode, name, setName }: { label: string; code: string; setCode: (value: string) => void; name: string; setName: (value: string) => void }) {
-  return <View style={{ gap: spacing.xs }}><Text style={{ color: colors.ink, fontWeight: '700' }}>{label}</Text><View style={{ flexDirection: 'row', gap: spacing.sm }}><TextInput accessibilityLabel={`${label} code`} value={code} onChangeText={setCode} autoCapitalize="none" placeholder="en" maxLength={12} style={{ width: 78, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.ink, backgroundColor: colors.surface }} /><TextInput accessibilityLabel={`${label} name`} value={name} onChangeText={setName} placeholder="English" style={{ flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.ink, backgroundColor: colors.surface }} /></View></View>;
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
+
+function LanguageInput({ label, code, setCode, name, setName, namePlaceholder }: { label: string; code: string; setCode: (value: string) => void; name: string; setName: (value: string) => void; namePlaceholder: string }) {
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Text style={{ color: colors.ink, fontWeight: '800', ...rtlText }}>{label}</Text>
+      <View style={{ flexDirection: 'row-reverse', gap: spacing.sm }}>
+        <TextInput accessibilityLabel={`${label} - الكود`} value={code} onChangeText={setCode} autoCapitalize="none" placeholder="en" maxLength={12} style={{ width: 78, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.ink, backgroundColor: colors.surface, textAlign: 'center' }} />
+        <TextInput accessibilityLabel={`${label} - الاسم`} value={name} onChangeText={setName} placeholder={namePlaceholder} style={{ flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, color: colors.ink, backgroundColor: colors.surface, ...rtlText }} />
+      </View>
+    </View>
+  );
 }
 
 async function readSettings(sqlite: SQLiteDatabase): Promise<{ ownerKey: string; activeId: string | null; pairs: LanguagePair[] }> {
@@ -30,10 +40,17 @@ async function readSettings(sqlite: SQLiteDatabase): Promise<{ ownerKey: string;
 }
 
 function syncLabel(phase: 'IDLE' | 'SYNCING' | 'OFFLINE' | 'ERROR', pending: number): string {
-  if (phase === 'SYNCING') return 'Syncing securely…';
-  if (phase === 'OFFLINE') return pending ? `Offline · ${pending} changes waiting` : 'Offline · local study is available';
-  if (phase === 'ERROR') return 'Some cloud changes need attention';
-  return pending ? `${pending} changes waiting to sync` : 'Synced';
+  if (phase === 'SYNCING') return 'بنعمل مزامنة دلوقتي…';
+  if (phase === 'OFFLINE') return pending ? `مفيش نت · ${pending} تغيير مستني` : 'مفيش نت · المذاكرة المحلية شغالة عادي';
+  if (phase === 'ERROR') return 'في شوية تغييرات محتاجة محاولة تانية';
+  return pending ? `${pending} تغيير مستني المزامنة` : 'كله متزامن';
+}
+
+function syncPhaseLabel(phase: 'IDLE' | 'SYNCING' | 'OFFLINE' | 'ERROR'): string {
+  if (phase === 'SYNCING') return 'بنعمل مزامنة';
+  if (phase === 'OFFLINE') return 'أوفلاين';
+  if (phase === 'ERROR') return 'محتاج مراجعة';
+  return 'تمام';
 }
 
 export function SettingsScreen() {
@@ -68,7 +85,7 @@ export function SettingsScreen() {
         setError(null);
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not load settings.');
+        if (!cancelled) setError(caught instanceof Error ? caught.message : 'مقدرناش نفتح الإعدادات دلوقتي.');
       });
     return () => { cancelled = true; };
   }, [sqlite]);
@@ -81,13 +98,13 @@ export function SettingsScreen() {
 
   async function createPair() {
     try {
-      if (!targetCode.trim() || !targetName.trim() || !referenceCode.trim() || !referenceName.trim()) throw new Error('Both languages need a code and a name.');
+      if (!targetCode.trim() || !targetName.trim() || !referenceCode.trim() || !referenceName.trim()) throw new Error('كل لغة محتاجة كود واسم.');
       const pair = await repo.createLanguagePair({ ownerKey, targetLanguageCode: targetCode, targetLanguageName: targetName, referenceLanguageCode: referenceCode, referenceLanguageName: referenceName });
       await choosePair(pair.id);
       await reload();
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not create language pair.');
+      setError(caught instanceof Error ? caught.message : 'مقدرناش نضيف اللغة دي.');
     }
   }
 
@@ -96,7 +113,7 @@ export function SettingsScreen() {
     setSyncBusy(true);
     setError(null);
     try { await syncCloudNow(sqlite, ownerKey); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not sync right now.'); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'المزامنة مشتغلتش دلوقتي. جرّب تاني.'); }
     finally { setSyncBusy(false); }
   }
 
@@ -107,7 +124,7 @@ export function SettingsScreen() {
       await syncCloudNow(sqlite, ownerKey);
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not retry blocked changes.');
+      setError(caught instanceof Error ? caught.message : 'مقدرناش نعيد المحاولات دلوقتي.');
     } finally { setSyncBusy(false); }
   }
 
@@ -120,20 +137,70 @@ export function SettingsScreen() {
       setActiveStudySession(null);
       await reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not restore from cloud.');
+      setError(caught instanceof Error ? caught.message : 'مقدرناش نرجّع النسخة من السحابة.');
     } finally { setSyncBusy(false); }
   }
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <View style={{ gap: spacing.xs }}><Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Languages & settings</Text><Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Each language pair has its own bank and study queue.</Text></View>
-      {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text style={{ color: colors.danger }}>{error}</Text></Surface> : null}
-      <View style={{ gap: spacing.sm }}><Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Active language pair</Text>{pairs.length ? pairs.map((pair) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: activeId === pair.id }} key={pair.id} onPress={() => void choosePair(pair.id)}><Surface style={{ padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderColor: activeId === pair.id ? colors.accent : colors.border }}><View style={{ flex: 1 }}><Text selectable style={{ color: colors.ink, fontSize: 18, fontWeight: '800' }}>{pair.targetLanguageName}</Text><Text selectable style={{ color: colors.inkMuted }}>meanings in {pair.referenceLanguageName}</Text></View>{activeId === pair.id ? <Chip>ACTIVE</Chip> : null}</Surface></Pressable>) : <Text selectable style={{ color: colors.inkMuted }}>Create your first pair below. No account is required.</Text>}</View>
-      <Surface style={{ padding: spacing.md, gap: spacing.md }}><Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Add language pair</Text><LanguageInput label="Learning language" code={targetCode} setCode={setTargetCode} name={targetName} setName={setTargetName} /><LanguageInput label="Explanation language" code={referenceCode} setCode={setReferenceCode} name={referenceName} setName={setReferenceName} /><ActionButton label="Create and use this pair" onPress={() => void createPair()} /></Surface>
+      <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
+        <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>الإعدادات</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25, ...rtlText }}>ظبط الحساب، التنبيهات، والمزامنة. التطبيق بيبدأ تلقائي على English → Arabic.</Text>
+      </View>
+
+      {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text style={{ color: colors.danger, ...rtlText }}>{error}</Text></Surface> : null}
+
+      <View style={{ gap: spacing.sm }}>
+        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900', ...rtlText }}>لغة المذاكرة</Text>
+        {pairs.length ? pairs.map((pair) => (
+          <Pressable accessibilityRole="radio" accessibilityState={{ checked: activeId === pair.id }} key={pair.id} onPress={() => void choosePair(pair.id)}>
+            <Surface style={{ padding: spacing.md, flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md, borderColor: activeId === pair.id ? colors.accent : colors.border }}>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text selectable style={{ color: colors.ink, fontSize: 18, fontWeight: '800', ...rtlText }}>{pair.targetLanguageName}</Text>
+                <Text selectable style={{ color: colors.inkMuted, ...rtlText }}>المعاني بـ {pair.referenceLanguageName}</Text>
+              </View>
+              {activeId === pair.id ? <Chip>المستخدمة دلوقتي</Chip> : null}
+            </Surface>
+          </Pressable>
+        )) : <Text selectable style={{ color: colors.inkMuted, ...rtlText }}>بنجهز English → Arabic تلقائي.</Text>}
+      </View>
+
+      <Surface style={{ padding: spacing.md, gap: spacing.md }}>
+        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900', ...rtlText }}>إعداد متقدم: ضيف لغة تانية</Text>
+        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22, ...rtlText }}>مش محتاج تعمل ده عشان تبدأ. استخدمه بس لو عايز بنك منفصل للغة مختلفة.</Text>
+        <LanguageInput label="اللغة اللي بتتعلمها" code={targetCode} setCode={setTargetCode} name={targetName} setName={setTargetName} namePlaceholder="English" />
+        <LanguageInput label="لغة الشرح" code={referenceCode} setCode={setReferenceCode} name={referenceName} setName={setReferenceName} namePlaceholder="Arabic" />
+        <ActionButton label="ضيف واستخدم اللغة دي" onPress={() => void createPair()} />
+      </Surface>
+
       {activeId ? <ReminderSettingsCard languagePairId={activeId} /> : null}
-      <Surface style={{ padding: spacing.md, gap: spacing.sm }}><Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Cloud account</Text><Text selectable style={{ color: colors.inkMuted, lineHeight: 23 }}>{ownerKey === GUEST_OWNER_KEY ? 'You are studying as a guest. Your data stays local until you choose to create or sign into an account.' : 'This device is scoped to your signed-in account.'}</Text><Link href="/auth" asChild><ActionButton label={ownerKey === GUEST_OWNER_KEY ? 'Sign in or create account' : 'Account'} /></Link></Surface>
-      {ownerKey !== GUEST_OWNER_KEY ? <Surface style={{ padding: spacing.md, gap: spacing.sm }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}><Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Cloud sync</Text><Chip>{sync.phase}</Chip></View><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted, lineHeight: 23 }}>{isNeonCloudConfigured() ? syncLabel(sync.phase, sync.pendingCount) : 'Cloud endpoints are not configured in this build. Local study still works.'}</Text>{sync.lastSyncedAt ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>Last synced {new Date(sync.lastSyncedAt).toLocaleString()}</Text> : null}<ActionButton label={syncBusy || sync.phase === 'SYNCING' ? 'Syncing…' : 'Sync now'} disabled={syncBusy || !isNeonCloudConfigured()} onPress={() => void runSync()} />{sync.blockedCount > 0 ? <ActionButton label={`Retry ${sync.blockedCount} blocked change${sync.blockedCount === 1 ? '' : 's'}`} onPress={() => void retryBlocked()} disabled={syncBusy} /> : null}<ActionButton label="Reset local data & re-download" tone="danger" disabled={syncBusy || !isNeonCloudConfigured()} onPress={() => Alert.alert('Re-download this account?', 'This removes only this account’s local copy on this device, then reconstructs it from Neon. Cloud data is not deleted.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Re-download', style: 'destructive', onPress: () => void restoreFromCloud() }])} /></Surface> : null}
-      {__DEV__ ? <Surface style={{ padding: spacing.md, gap: spacing.sm }}><Text selectable style={{ color: colors.ink, fontWeight: '800' }}>Developer utilities</Text><ActionButton label="Reset demo vocabulary" tone="danger" onPress={() => Alert.alert('Reset demo data?', 'This only affects the local development database.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Reset', style: 'destructive', onPress: () => void resetAndSeedDemoDatabase(sqlite).then(() => { setActiveStudySession(null); return reload(); }) }])} /></Surface> : null}
+
+      <Surface style={{ padding: spacing.md, gap: spacing.sm, alignItems: 'flex-end' }}>
+        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900', ...rtlText }}>الحساب</Text>
+        <Text selectable style={{ color: colors.inkMuted, lineHeight: 23, ...rtlText }}>{ownerKey === GUEST_OWNER_KEY ? 'إنت داخل كضيف دلوقتي. بياناتك موجودة على الجهاز لحد ما تختار تعمل حساب أو تدخل على حسابك.' : 'الجهاز ده مربوط بحسابك.'}</Text>
+        <View style={{ width: '100%' }}><Link href="/auth" asChild><ActionButton label={ownerKey === GUEST_OWNER_KEY ? 'دخول أو حساب جديد' : 'افتح حسابك'} /></Link></View>
+      </Surface>
+
+      {ownerKey !== GUEST_OWNER_KEY ? (
+        <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }}>
+            <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900', ...rtlText }}>المزامنة</Text>
+            <Chip>{syncPhaseLabel(sync.phase)}</Chip>
+          </View>
+          <Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted, lineHeight: 23, ...rtlText }}>{isNeonCloudConfigured() ? syncLabel(sync.phase, sync.pendingCount) : 'المزامنة السحابية مش متظبطة في النسخة دي، بس المذاكرة المحلية شغالة عادي.'}</Text>
+          {sync.lastSyncedAt ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>آخر مزامنة: {new Date(sync.lastSyncedAt).toLocaleString('ar-EG')}</Text> : null}
+          <ActionButton label={syncBusy || sync.phase === 'SYNCING' ? 'بنعمل مزامنة…' : 'زامن دلوقتي'} disabled={syncBusy || !isNeonCloudConfigured()} onPress={() => void runSync()} />
+          {sync.blockedCount > 0 ? <ActionButton label={`جرّب تاني لـ ${sync.blockedCount} تغيير`} onPress={() => void retryBlocked()} disabled={syncBusy} /> : null}
+          <ActionButton label="امسح النسخة المحلية ونزّلها تاني" tone="danger" disabled={syncBusy || !isNeonCloudConfigured()} onPress={() => Alert.alert('ننزل بيانات حسابك من جديد؟', 'ده هيمسح النسخة المحلية على الجهاز بس، وبعدها ينزل بياناتك من السحابة. بيانات السحابة نفسها مش هتتمسح.', [{ text: 'لأ', style: 'cancel' }, { text: 'نزّلها تاني', style: 'destructive', onPress: () => void restoreFromCloud() }])} />
+        </Surface>
+      ) : null}
+
+      {__DEV__ ? (
+        <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+          <Text selectable style={{ color: colors.ink, fontWeight: '800', ...rtlText }}>أدوات التطوير</Text>
+          <ActionButton label="رجّع بيانات التجربة" tone="danger" onPress={() => Alert.alert('نرجّع بيانات التجربة؟', 'ده هيأثر على قاعدة البيانات المحلية للتطوير بس.', [{ text: 'لأ', style: 'cancel' }, { text: 'رجّعها', style: 'destructive', onPress: () => void resetAndSeedDemoDatabase(sqlite).then(() => { setActiveStudySession(null); return reload(); }) }])} />
+        </Surface>
+      ) : null}
     </ScrollView>
   );
 }
