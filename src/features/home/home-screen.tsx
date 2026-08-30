@@ -7,7 +7,7 @@ type HomeAction = {
   title: string;
   body: string;
   icon: string;
-  href: '/' | '/study' | '/course-library' | '/smart-import' | '/add' | '/bank' | '/stats';
+  href: '/' | '/study' | '/course-library' | '/smart-import' | '/add' | '/manual-add' | '/bank' | '/stats';
   prominent?: boolean;
 };
 
@@ -15,7 +15,7 @@ const ACTIONS: HomeAction[] = [
   { title: 'Study now', body: 'Start a quick swipe round.', icon: '⚡', href: '/study', prominent: true },
   { title: 'A1 Adventure', body: 'Explore worlds and collect useful words.', icon: '🗺️', href: '/course-library' },
   { title: 'Smart Import', body: 'Text, images, PDF, YouTube or a web page.', icon: '✨', href: '/smart-import' },
-  { title: 'Quick Add', body: 'Add one word and let Gemini help.', icon: '+', href: '/add' },
+  { title: 'Quick Add', body: 'Add one word and let Gemini help.', icon: '+', href: '/manual-add' },
   { title: 'Vocabulary Bank', body: 'Search, edit and organize your words.', icon: '▤', href: '/bank' },
   { title: 'Progress', body: 'See your learning stats.', icon: '🏆', href: '/stats' },
 ];
