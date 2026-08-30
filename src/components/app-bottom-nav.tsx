@@ -4,11 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 const ITEMS = [
-  { label: 'Home', icon: '⌂', href: '/' },
-  { label: 'Study', icon: '⚡', href: '/study' },
-  { label: 'Course', icon: '🗺️', href: '/course-library' },
-  { label: 'Bank', icon: '▤', href: '/bank' },
-  { label: 'Add', icon: '+', href: '/add' },
+  { label: 'الرئيسية', icon: '⌂', href: '/' },
+  { label: 'ذاكر', icon: '⚡', href: '/study' },
+  { label: 'الكورس', icon: '🗺️', href: '/course-library' },
+  { label: 'كلماتي', icon: '▤', href: '/bank' },
+  { label: 'ضيف', icon: '+', href: '/add' },
 ] as const;
 
 function activeSection(pathname: string) {
@@ -63,8 +63,8 @@ export function AppBottomNav() {
               opacity: pressed ? 0.64 : 1,
             })}
           >
-            <Text aria-hidden style={{ color: selected ? colors.ink : colors.inkMuted, fontSize: item.label === 'Add' ? 25 : 20, lineHeight: 24, fontWeight: '900' }}>{item.icon}</Text>
-            <Text style={{ color: selected ? colors.ink : colors.inkMuted, fontSize: typography.small, fontWeight: selected ? '900' : '700' }}>{item.label}</Text>
+            <Text aria-hidden style={{ color: selected ? colors.ink : colors.inkMuted, fontSize: item.href === '/add' ? 25 : 20, lineHeight: 24, fontWeight: '900' }}>{item.icon}</Text>
+            <Text style={{ color: selected ? colors.ink : colors.inkMuted, fontSize: typography.small, fontWeight: selected ? '900' : '700', writingDirection: 'rtl' }}>{item.label}</Text>
           </Pressable>
         );
       })}
