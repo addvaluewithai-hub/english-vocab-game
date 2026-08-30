@@ -104,6 +104,7 @@ export async function routeGemini({
   maxOutputTokens = 420,
   attemptTimeoutMs = 4_500,
   overallTimeoutMs = 10_000,
+  acceptText = () => true,
 }) {
   if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
 
@@ -135,8 +136,15 @@ export async function routeGemini({
           signal: overall.signal,
         });
 
-        attempts.push({ model, status: result.status, latencyMs: result.latencyMs, ok: result.ok });
-        if (result.ok) {
+        const accepted = result.ok && acceptText(result.text);
+        attempts.push({
+          model,
+          status: result.ok && !accepted ? 'invalid-output' : result.status,
+          latencyMs: result.latencyMs,
+          ok: accepted,
+        });
+
+        if (accepted) {
           return {
             ok: true,
             model,
@@ -149,6 +157,7 @@ export async function routeGemini({
           };
         }
 
+        if (result.ok) continue;
         if (!RETRYABLE_STATUSES.has(result.status)) {
           return { ok: false, error: 'provider-rejected-request', status: result.status, task, attempts };
         }
