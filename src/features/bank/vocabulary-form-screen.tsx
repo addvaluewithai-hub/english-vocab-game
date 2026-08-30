@@ -143,13 +143,26 @@ export function VocabularyFormScreen() {
         <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pair.targetLanguageName} → {pair.referenceLanguageName}</Text>
       </View>
       {!cardId ? (
-        <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
-          <View style={{ gap: spacing.xs }}>
-            <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse A1 missions, collect useful vocabulary and phrases, then train them in the same Bank.</Text>
-          </View>
-          <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
-        </Surface>
+        <View style={{ gap: spacing.md }}>
+          <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.ink }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+              <Text aria-hidden style={{ fontSize: 30 }}>✨</Text>
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Text selectable style={{ color: colors.surface, fontSize: 19, fontWeight: '900' }}>Gemini Smart Import</Text>
+                <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Paste text, choose images or a PDF, or give Gemini a YouTube or public web URL. Pick the vocabulary before translation.</Text>
+              </View>
+            </View>
+            <ActionButton label="Start smart import" onPress={() => router.push('/smart-import')} />
+          </Surface>
+
+          <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+            <View style={{ gap: spacing.xs }}>
+              <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse A1 missions, collect useful vocabulary and phrases, then train them in the same Bank.</Text>
+            </View>
+            <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
+          </Surface>
+        </View>
       ) : null}
       {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger }}>{error}</Text></Surface> : null}
       <Field label="Term or phrase" value={term} onChangeText={(value) => { setTerm(value); setAiMessage(null); }} placeholder="e.g. look forward to" />
