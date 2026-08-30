@@ -29,8 +29,8 @@ export function VocabularyCard({ card, revealed, onReveal }: { card: StudyCard; 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={revealed ? `${card.term}. Answer revealed: ${card.translation}` : `${card.term}. Tap to reveal the answer.`}
-      accessibilityHint={revealed ? 'Swipe right if you knew it or left if you forgot.' : 'Reveals the meaning and example.'}
+      accessibilityLabel={revealed ? `${card.term}. المعنى: ${card.translation}` : `${card.term}. دوس عشان تشوف المعنى.`}
+      accessibilityHint={revealed ? 'اسحب يمين لو عارفها أو شمال لو نسيتها.' : 'بيظهر المعنى والمثال.'}
       onPress={() => !revealed && onReveal()}
       style={{ width: '100%', height: cardHeight }}
     >
@@ -40,7 +40,7 @@ export function VocabularyCard({ card, revealed, onReveal }: { card: StudyCard; 
             <Text selectable adjustsFontSizeToFit minimumFontScale={0.55} numberOfLines={3} style={{ color: colors.ink, fontSize: typography.display, lineHeight: 56, fontWeight: '900', textAlign: 'center' }}>
               {card.term}
             </Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, textAlign: 'center' }}>Tap only if you need the answer</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, textAlign: 'center', writingDirection: 'rtl' }}>دوس بس لو محتاج تشوف المعنى</Text>
           </View>
         </Surface>
       </Animated.View>
