@@ -1,5 +1,5 @@
-import { VocabularyFormScreen } from '@/features/bank/vocabulary-form-screen';
+import { QuickAddScreen } from '@/features/add/quick-add-screen';
 
 export default function ManualAddRoute() {
-  return <VocabularyFormScreen />;
+  return <QuickAddScreen />;
 }
