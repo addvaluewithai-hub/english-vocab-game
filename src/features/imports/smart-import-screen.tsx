@@ -16,13 +16,14 @@ import { colors, radius, spacing, typography } from '@/theme/tokens';
 const MAX_IMAGES = 3;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_PDF_BYTES = 8 * 1024 * 1024;
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
 
 const SOURCES: { type: GeminiImportSourceType; icon: string; label: string; hint: string }[] = [
-  { type: 'TEXT', icon: '✍️', label: 'Text', hint: 'Paste notes, a list, or a paragraph' },
-  { type: 'PHOTO', icon: '🖼️', label: 'Images', hint: 'Camera or up to 3 screenshots/photos' },
-  { type: 'PDF', icon: '📄', label: 'PDF', hint: 'Let Gemini read the document' },
-  { type: 'YOUTUBE', icon: '▶️', label: 'YouTube', hint: 'Public video URL' },
-  { type: 'URL', icon: '🌐', label: 'Web URL', hint: 'Public article, page, or linked PDF' },
+  { type: 'TEXT', icon: '✍️', label: 'نص', hint: 'الصق ملاحظات، ليستة، أو فقرة' },
+  { type: 'PHOTO', icon: '🖼️', label: 'صور', hint: 'كاميرا أو لحد 3 صور' },
+  { type: 'PDF', icon: '📄', label: 'PDF', hint: 'خلي Gemini يقرا الملف' },
+  { type: 'YOUTUBE', icon: '▶️', label: 'يوتيوب', hint: 'لينك فيديو عام' },
+  { type: 'URL', icon: '🌐', label: 'لينك', hint: 'صفحة أو ملف عام' },
 ];
 
 type SelectedImage = {
@@ -74,11 +75,11 @@ function sourceTitle(
   pdf: SelectedPdf | null,
   images: SelectedImage[],
 ): string {
-  if (type === 'TEXT') return `Text · ${text.trim().slice(0, 48) || 'pasted vocabulary'}`;
-  if (type === 'PDF') return `PDF · ${pdf?.name ?? 'document'}`;
-  if (type === 'YOUTUBE') return `YouTube · ${youtubeUrl.trim().slice(0, 72)}`;
-  if (type === 'URL') return `Web · ${webUrl.trim().slice(0, 72)}`;
-  return images.length === 1 ? `Photo · ${images[0]?.name ?? 'image'}` : `Photos · ${images.length} images`;
+  if (type === 'TEXT') return `نص · ${text.trim().slice(0, 48) || 'كلمات من نص'}`;
+  if (type === 'PDF') return `PDF · ${pdf?.name ?? 'ملف'}`;
+  if (type === 'YOUTUBE') return `يوتيوب · ${youtubeUrl.trim().slice(0, 72)}`;
+  if (type === 'URL') return `لينك · ${webUrl.trim().slice(0, 72)}`;
+  return images.length === 1 ? `صورة · ${images[0]?.name ?? 'صورة'}` : `صور · ${images.length}`;
 }
 
 function sourceTypeForBatch(type: GeminiImportSourceType): SourceType {
@@ -119,7 +120,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
 
   function validateImageSize(item: SelectedImage): boolean {
     if (item.size !== null && item.size > MAX_IMAGE_BYTES) {
-      setError(`${item.name} is larger than 3 MB. Crop it or choose a smaller image.`);
+      setError(`${item.name} أكبر من 3 MB. قصّ الصورة أو اختار صورة أصغر.`);
       return false;
     }
     return true;
@@ -137,27 +138,27 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
     const next = result.assets
       .slice(0, MAX_IMAGES)
       .flatMap((asset, index) => {
-        const item = selectedImageFromAsset(asset, `Image ${index + 1}`);
+        const item = selectedImageFromAsset(asset, `صورة ${index + 1}`);
         return item ? [item] : [];
       });
     const tooLarge = next.find((item) => item.size !== null && item.size > MAX_IMAGE_BYTES);
     if (tooLarge) {
-      setError(`${tooLarge.name} is larger than 3 MB. Crop it or choose a smaller image.`);
+      setError(`${tooLarge.name} أكبر من 3 MB. قصّها أو اختار صورة أصغر.`);
       return;
     }
     setImages(next);
     resetDiscovery();
-    setError(next.length ? null : 'Could not read those images.');
+    setError(next.length ? null : 'معرفناش نقرا الصور دي.');
   }
 
   async function takePhoto() {
     if (images.length >= MAX_IMAGES) {
-      setError(`You already have ${MAX_IMAGES} images. Remove/reselect before taking another photo.`);
+      setError(`إنت مختار ${MAX_IMAGES} صور بالفعل. شيل صورة أو اختار من جديد.`);
       return;
     }
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      setError('Camera permission is required to take a vocabulary photo.');
+      setError('محتاجين إذن الكاميرا عشان نصور كلمات.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -166,9 +167,9 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       quality: 0.7,
     });
     if (result.canceled || !result.assets[0]) return;
-    const item = selectedImageFromAsset(result.assets[0], `Camera ${images.length + 1}`);
+    const item = selectedImageFromAsset(result.assets[0], `كاميرا ${images.length + 1}`);
     if (!item) {
-      setError('Could not read that photo.');
+      setError('معرفناش نقرا الصورة دي.');
       return;
     }
     if (!validateImageSize(item)) return;
@@ -187,7 +188,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     if (asset.size !== undefined && asset.size > MAX_PDF_BYTES) {
-      setError('Use a PDF smaller than 8 MB for the quick import path.');
+      setError('اختار PDF أصغر من 8 MB للمسار السريع.');
       return;
     }
     setError(null);
@@ -196,7 +197,7 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       setPdf({ name: asset.name, data, size: asset.size ?? null });
       resetDiscovery();
     } catch {
-      setError('Could not read that PDF. Try downloading it locally first.');
+      setError('معرفناش نقرا الـPDF. جرّب تنزله على الجهاز الأول.');
     }
   }
 
@@ -207,28 +208,28 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
     try {
       let next: DiscoveredVocabulary[];
       if (sourceType === 'TEXT') {
-        if (!text.trim()) throw new Error('Paste some English text first.');
+        if (!text.trim()) throw new Error('الصق شوية إنجليزي الأول.');
         next = await discoverVocabulary({ sourceType, text: text.trim() });
       } else if (sourceType === 'PHOTO') {
-        if (!images.length) throw new Error('Choose or take at least one image first.');
+        if (!images.length) throw new Error('اختار أو صوّر صورة واحدة على الأقل.');
         next = await discoverVocabulary({
           sourceType,
           images: images.map(({ mimeType, data }) => ({ mimeType, data })),
         });
       } else if (sourceType === 'PDF') {
-        if (!pdf) throw new Error('Choose a PDF first.');
+        if (!pdf) throw new Error('اختار PDF الأول.');
         next = await discoverVocabulary({ sourceType, file: { name: pdf.name, data: pdf.data } });
       } else if (sourceType === 'YOUTUBE') {
-        if (!youtubeUrl.trim()) throw new Error('Paste a public YouTube URL first.');
+        if (!youtubeUrl.trim()) throw new Error('حط لينك يوتيوب عام الأول.');
         next = await discoverVocabulary({ sourceType, url: youtubeUrl.trim() });
       } else {
-        if (!webUrl.trim()) throw new Error('Paste a public web URL first.');
+        if (!webUrl.trim()) throw new Error('حط لينك عام الأول.');
         next = await discoverVocabulary({ sourceType, url: webUrl.trim() });
       }
       setCandidates(next);
       setSelected(new Set(next.filter((item) => item.usefulnessScore >= 0.6).map((item) => item.term.toLocaleLowerCase())));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Gemini could not analyze this source.');
+      setError(caught instanceof Error ? caught.message : 'Gemini معرفش يحلل المصدر ده.');
     } finally {
       setDiscovering(false);
     }
@@ -248,83 +249,83 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
       );
       router.replace('/import-staging');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not prepare the selected vocabulary.');
+      setError(caught instanceof Error ? caught.message : 'مقدرناش نجهز الكلمات اللي اخترتها.');
     } finally {
       setEnriching(false);
     }
   }
 
   if (pairLoading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator /></View>;
-  if (!pair) return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch." />;
+  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ width: '100%', maxWidth: 760, alignSelf: 'center', padding: spacing.lg, gap: spacing.md, paddingBottom: 100 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <Surface style={{ padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.ink }}>
-        <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', letterSpacing: 1 }}>GEMINI SMART IMPORT</Text>
-        <Text accessibilityRole="header" selectable style={{ color: colors.surface, fontSize: 30, lineHeight: 35, fontWeight: '900' }}>Bring your own English</Text>
-        <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Gemini finds useful vocabulary first. You choose what matters. Only then do we translate it and create examples.</Text>
+      <Surface style={{ padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.ink, alignItems: 'flex-end' }}>
+        <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.small, fontWeight: '900', ...rtlText }}>إضافة ذكية بـ GEMINI</Text>
+        <Text accessibilityRole="header" selectable style={{ color: colors.surface, fontSize: 30, lineHeight: 37, fontWeight: '900', ...rtlText }}>هات الإنجليزي من أي مكان</Text>
+        <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 22, ...rtlText }}>Gemini يطلع الكلمات المفيدة الأول. إنت تختار اللي يهمك، وبعدها بس نترجم ونجهز الأمثلة.</Text>
       </Surface>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
         {SOURCES.map((source) => {
           const active = source.type === sourceType;
           return (
-            <Pressable key={source.type} accessibilityRole="button" onPress={() => changeSource(source.type)} style={{ width: 150, padding: spacing.md, gap: 4, borderRadius: radius.lg, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.surfaceMuted : colors.surface }}>
+            <Pressable key={source.type} accessibilityRole="button" onPress={() => changeSource(source.type)} style={{ width: 150, padding: spacing.md, gap: 4, borderRadius: radius.lg, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.surfaceMuted : colors.surface, alignItems: 'flex-end' }}>
               <Text aria-hidden style={{ fontSize: 26 }}>{source.icon}</Text>
-              <Text style={{ color: colors.ink, fontWeight: '900' }}>{source.label}</Text>
-              <Text style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18 }}>{source.hint}</Text>
+              <Text style={{ color: colors.ink, fontWeight: '900', ...rtlText }}>{source.label}</Text>
+              <Text style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18, ...rtlText }}>{source.hint}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
       {sourceType === 'TEXT' ? (
-        <TextInput accessibilityLabel="Text to analyze" value={text} onChangeText={(value) => { setText(value); resetDiscovery(); }} placeholder="Paste a list, notes, subtitles, an article excerpt…" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, color: colors.ink, textAlignVertical: 'top', fontSize: typography.body }} />
+        <TextInput accessibilityLabel="النص اللي هيتحلل" value={text} onChangeText={(value) => { setText(value); resetDiscovery(); }} placeholder="الصق ليستة، ملاحظات، subtitles، أو جزء من مقال…" placeholderTextColor={colors.inkMuted} multiline style={{ minHeight: 180, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.md, color: colors.ink, textAlignVertical: 'top', fontSize: typography.body }} />
       ) : null}
 
       {sourceType === 'YOUTUBE' ? (
-        <TextInput accessibilityLabel="YouTube URL" value={youtubeUrl} onChangeText={(value) => { setYoutubeUrl(value); resetDiscovery(); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://www.youtube.com/watch?v=…" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
+        <TextInput accessibilityLabel="لينك يوتيوب" value={youtubeUrl} onChangeText={(value) => { setYoutubeUrl(value); resetDiscovery(); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://www.youtube.com/watch?v=…" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
       ) : null}
 
       {sourceType === 'URL' ? (
         <View style={{ gap: spacing.sm }}>
-          <TextInput accessibilityLabel="Public web URL" value={webUrl} onChangeText={(value) => { setWebUrl(value); resetDiscovery(); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://example.com/article" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Works with public pages and direct public PDF/image URLs. Login-required and paywalled pages cannot be read by Gemini URL Context.</Text>
+          <TextInput accessibilityLabel="لينك عام" value={webUrl} onChangeText={(value) => { setWebUrl(value); resetDiscovery(); }} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://example.com/article" placeholderTextColor={colors.inkMuted} style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.ink }} />
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19, ...rtlText }}>ينفع مع الصفحات العامة ولينكات PDF أو الصور المباشرة. الصفحات اللي محتاجة login أو paywall مش هتتقري.</Text>
         </View>
       ) : null}
 
       {sourceType === 'PDF' ? (
         <View style={{ gap: spacing.sm }}>
-          <ActionButton label={pdf ? 'Choose another PDF' : 'Choose PDF'} onPress={() => void choosePdf()} />
-          {pdf ? <Surface style={{ padding: spacing.md, gap: 3 }}><Text selectable style={{ color: colors.ink, fontWeight: '900' }}>{pdf.name}</Text><Text style={{ color: colors.inkMuted, fontSize: typography.small }}>{pdf.size ? `${(pdf.size / 1024 / 1024).toFixed(1)} MB` : 'Ready to analyze'}</Text></Surface> : null}
+          <ActionButton label={pdf ? 'اختار PDF تاني' : 'اختار PDF'} onPress={() => void choosePdf()} />
+          {pdf ? <Surface style={{ padding: spacing.md, gap: 3, alignItems: 'flex-end' }}><Text selectable style={{ color: colors.ink, fontWeight: '900', ...rtlText }}>{pdf.name}</Text><Text style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>{pdf.size ? `${(pdf.size / 1024 / 1024).toFixed(1)} MB` : 'جاهز للتحليل'}</Text></Surface> : null}
         </View>
       ) : null}
 
       {sourceType === 'PHOTO' ? (
         <View style={{ gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}><ActionButton label={images.length ? 'Choose other images' : 'Choose images'} onPress={() => void chooseImages()} /></View>
-            <View style={{ flex: 1 }}><ActionButton label="Take photo" onPress={() => void takePhoto()} /></View>
+          <View style={{ flexDirection: 'row-reverse', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}><ActionButton label={images.length ? 'اختار صور تانية' : 'اختار صور'} onPress={() => void chooseImages()} /></View>
+            <View style={{ flex: 1 }}><ActionButton label="صوّر دلوقتي" onPress={() => void takePhoto()} /></View>
           </View>
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Up to 3 images total. Gemini reads visible English across all of them together.</Text>
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19, ...rtlText }}>لحد 3 صور. Gemini هيقرا الإنجليزي الظاهر فيهم كلهم مع بعض.</Text>
           {images.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>{images.map((item) => <Surface key={item.uri} style={{ width: 150, overflow: 'hidden' }}><Image source={item.uri} style={{ width: 150, height: 112 }} contentFit="cover" /><View style={{ padding: spacing.sm }}><Text numberOfLines={1} style={{ color: colors.ink, fontSize: typography.small, fontWeight: '800' }}>{item.name}</Text></View></Surface>)}</ScrollView> : null}
         </View>
       ) : null}
 
-      {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.danger }}>{error}</Text></Surface> : null}
+      {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.danger, ...rtlText }}>{error}</Text></Surface> : null}
 
       {!candidates.length ? (
         <View style={{ gap: spacing.sm }}>
-          <ActionButton label={discovering ? 'Gemini is finding vocabulary…' : 'Find useful vocabulary'} disabled={discovering} onPress={() => void discover()} />
-          {discovering ? <ActivityIndicator accessibilityLabel="Gemini is analyzing the source" /> : null}
-          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19, textAlign: 'center' }}>First pass only discovers candidates. No translation tokens are spent on words you do not choose.</Text>
+          <ActionButton label={discovering ? 'Gemini بيدوّر على الكلمات…' : 'طلع الكلمات المفيدة'} disabled={discovering} onPress={() => void discover()} />
+          {discovering ? <ActivityIndicator accessibilityLabel="Gemini بيحلل المصدر" /> : null}
+          <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19, textAlign: 'center', writingDirection: 'rtl' }}>أول خطوة بس بنطلع الكلمات المرشحة. مش بنصرف ترجمة وأمثلة على كلمات إنت مش هتختارها.</Text>
         </View>
       ) : (
         <View style={{ gap: spacing.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}><Text selectable style={{ color: colors.ink, fontSize: 21, fontWeight: '900' }}>Choose your words</Text><Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{selectedCandidates.length} of {candidates.length} selected</Text></View>
-            <Pressable onPress={() => setSelected(new Set(candidates.map((item) => item.term.toLocaleLowerCase())))}><Text style={{ color: colors.accent, fontWeight: '800' }}>All</Text></Pressable>
-            <Pressable onPress={() => setSelected(new Set())}><Text style={{ color: colors.inkMuted, fontWeight: '800' }}>Clear</Text></Pressable>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ flex: 1, alignItems: 'flex-end' }}><Text selectable style={{ color: colors.ink, fontSize: 21, fontWeight: '900', ...rtlText }}>اختار كلماتك</Text><Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, ...rtlText }}>مختار {selectedCandidates.length} من {candidates.length}</Text></View>
+            <Pressable onPress={() => setSelected(new Set(candidates.map((item) => item.term.toLocaleLowerCase())))}><Text style={{ color: colors.accent, fontWeight: '800', ...rtlText }}>الكل</Text></Pressable>
+            <Pressable onPress={() => setSelected(new Set())}><Text style={{ color: colors.inkMuted, fontWeight: '800', ...rtlText }}>امسح</Text></Pressable>
           </View>
 
           {candidates.map((candidate) => {
@@ -338,16 +339,16 @@ export function SmartImportScreen({ initialSourceType = 'TEXT' }: { initialSourc
                     <Text selectable style={{ color: colors.ink, fontSize: 18, fontWeight: '900' }}>{candidate.term}</Text>
                     {candidate.contextHint ? <Text selectable numberOfLines={2} style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 18 }}>{candidate.contextHint}</Text> : null}
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}><Chip>{candidate.kind === 'WORD' ? 'Word' : 'Phrase'}</Chip><Text style={{ color: colors.inkMuted, fontSize: 11 }}>{Math.round(candidate.usefulnessScore * 100)}% useful</Text></View>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}><Chip>{candidate.kind === 'WORD' ? 'كلمة' : 'عبارة'}</Chip><Text style={{ color: colors.inkMuted, fontSize: 11, ...rtlText }}>{Math.round(candidate.usefulnessScore * 100)}% مفيدة</Text></View>
                 </Surface>
               </Pressable>
             );
           })}
 
-          <Surface style={{ padding: spacing.md, gap: spacing.xs, backgroundColor: colors.surfaceMuted }}><Text selectable style={{ color: colors.ink, fontWeight: '900' }}>Next step</Text><Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19 }}>Gemini translates only the selected items and creates a definition + natural example + Arabic example translation. Then you get one final editable Review screen.</Text></Surface>
-          <ActionButton label={enriching ? `Preparing ${selectedCandidates.length}…` : `Translate & review ${selectedCandidates.length}`} disabled={enriching || selectedCandidates.length === 0} onPress={() => void prepareSelected()} />
-          {enriching ? <ActivityIndicator accessibilityLabel="Gemini is enriching selected vocabulary" /> : null}
-          <Pressable onPress={resetDiscovery}><Text style={{ color: colors.inkMuted, fontWeight: '800', textAlign: 'center' }}>Analyze a different source</Text></Pressable>
+          <Surface style={{ padding: spacing.md, gap: spacing.xs, backgroundColor: colors.surfaceMuted, alignItems: 'flex-end' }}><Text selectable style={{ color: colors.ink, fontWeight: '900', ...rtlText }}>الخطوة الجاية</Text><Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 19, ...rtlText }}>Gemini هيترجم الكلمات اللي اخترتها بس، ويعمل تعريف ومثال طبيعي وترجمة المثال. وبعدها هتراجع كل حاجة قبل الإضافة.</Text></Surface>
+          <ActionButton label={enriching ? `بنجهز ${selectedCandidates.length}…` : `ترجم وراجع ${selectedCandidates.length}`} disabled={enriching || selectedCandidates.length === 0} onPress={() => void prepareSelected()} />
+          {enriching ? <ActivityIndicator accessibilityLabel="Gemini بيكمل بيانات الكلمات" /> : null}
+          <Pressable onPress={resetDiscovery}><Text style={{ color: colors.inkMuted, fontWeight: '800', textAlign: 'center', writingDirection: 'rtl' }}>حلّل مصدر تاني</Text></Pressable>
         </View>
       )}
     </ScrollView>
