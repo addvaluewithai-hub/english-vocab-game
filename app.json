@@ -39,6 +39,7 @@
           "microphonePermission": false
         }
       ],
+      "expo-document-picker",
       "expo-sqlite",
       "expo-notifications"
     ],
