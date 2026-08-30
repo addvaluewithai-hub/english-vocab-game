@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { enrichVocabularyWithGemini } from '@/ai/vocabulary-enrichment';
 import { ActionButton, Chip, EmptyState, Surface } from '@/components/primitives';
 import { CatalogRepository, ManualVocabularyService, type CollectionSummary } from '@/data/catalog';
 import { asSqlDatabase } from '@/data/database';
@@ -46,6 +47,8 @@ export function VocabularyFormScreen() {
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [loading, setLoading] = useState(Boolean(cardId));
   const [saving, setSaving] = useState(false);
+  const [aiFilling, setAiFilling] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,6 +85,29 @@ export function VocabularyFormScreen() {
     return () => { cancelled = true; };
   }, [cardId, pair, sqlite]);
 
+  async function fillWithGemini() {
+    if (!term.trim() || aiFilling) return;
+    setAiFilling(true);
+    setAiMessage(null);
+    setError(null);
+    try {
+      const suggestion = await enrichVocabularyWithGemini(term, kind);
+      setTranslation(suggestion.translation);
+      setDefinition(suggestion.definition);
+      setContext(suggestion.contextSentence);
+      setPartOfSpeech(suggestion.partOfSpeech);
+      setExampleTranslation(suggestion.exampleTranslation);
+      setAdvanced(true);
+      setAiMessage(suggestion.fallbackCount > 0
+        ? `Filled with ${suggestion.model} after ${suggestion.fallbackCount} fallback${suggestion.fallbackCount === 1 ? '' : 's'}.`
+        : `Filled with ${suggestion.model}.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not fill this vocabulary with Gemini.');
+    } finally {
+      setAiFilling(false);
+    }
+  }
+
   async function save() {
     if (!pair || saving) return;
     setSaving(true);
@@ -108,7 +134,7 @@ export function VocabularyFormScreen() {
   }
 
   if (pairLoading || loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator /></View>;
-  if (!pair) return <EmptyState title="Choose your languages" body="Set a language pair before adding vocabulary." />;
+  if (!pair) return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch." />;
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
@@ -116,13 +142,46 @@ export function VocabularyFormScreen() {
         <Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>{cardId ? 'Edit vocabulary' : 'Add vocabulary'}</Text>
         <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pair.targetLanguageName} → {pair.referenceLanguageName}</Text>
       </View>
+      {!cardId ? (
+        <View style={{ gap: spacing.md }}>
+          <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.ink }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+              <Text aria-hidden style={{ fontSize: 30 }}>✨</Text>
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Text selectable style={{ color: colors.surface, fontSize: 19, fontWeight: '900' }}>Gemini Smart Import</Text>
+                <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Paste text, choose images or a PDF, or give Gemini a YouTube or public web URL. Pick the vocabulary before translation.</Text>
+              </View>
+            </View>
+            <ActionButton label="Start smart import" onPress={() => router.push('/smart-import')} />
+          </Surface>
+
+          <Surface style={{ padding: spacing.md, gap: spacing.sm }}>
+            <View style={{ gap: spacing.xs }}>
+              <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>Choose from the English Course</Text>
+              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 21 }}>Browse A1 missions, collect useful vocabulary and phrases, then train them in the same Bank.</Text>
+            </View>
+            <ActionButton label="Browse course library" onPress={() => router.push('/course-library')} />
+          </Surface>
+        </View>
+      ) : null}
       {error ? <Surface style={{ padding: spacing.md, backgroundColor: colors.dangerSurface }}><Text selectable style={{ color: colors.danger }}>{error}</Text></Surface> : null}
-      <Field label="Term or phrase" value={term} onChangeText={setTerm} placeholder="e.g. look forward to" />
+      <Field label="Term or phrase" value={term} onChangeText={(value) => { setTerm(value); setAiMessage(null); }} placeholder="e.g. look forward to" />
       {!cardId ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           {(['WORD', 'PHRASE'] as const).map((value) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: kind === value }} onPress={() => setKind(value)} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: kind === value ? colors.accent : colors.surfaceMuted }}><Text style={{ color: kind === value ? colors.surface : colors.inkMuted, fontWeight: '700' }}>{value === 'WORD' ? 'Word' : 'Phrase'}</Text></Pressable>)}
         </View>
       ) : null}
+      <Surface style={{ padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surfaceMuted }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+          <Text aria-hidden style={{ fontSize: 28 }}>✨</Text>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text selectable style={{ color: colors.ink, fontWeight: '900', fontSize: 18 }}>Gemini assist</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>Type the English word or phrase. Gemini will suggest the Arabic meaning, definition and a natural example sentence. You can edit everything before saving.</Text>
+          </View>
+        </View>
+        <ActionButton label={aiFilling ? 'Thinking…' : 'Fill with Gemini'} disabled={aiFilling || !term.trim()} onPress={() => void fillWithGemini()} />
+        {aiMessage ? <Text selectable style={{ color: colors.success, fontSize: typography.small, fontWeight: '700' }}>{aiMessage}</Text> : null}
+      </Surface>
       <Field label="Meaning / translation" value={translation} onChangeText={setTranslation} placeholder="The meaning you want to recall" />
       <Field label="Context sentence" value={context} onChangeText={setContext} placeholder="Where you saw or would use it" multiline />
       <Pressable accessibilityRole="button" onPress={() => setAdvanced((value) => !value)}><Text style={{ color: colors.accent, fontWeight: '800', fontSize: typography.body }}>{advanced ? 'Hide optional details' : 'Add optional details'}</Text></Pressable>

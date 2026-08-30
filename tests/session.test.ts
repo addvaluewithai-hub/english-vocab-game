@@ -28,6 +28,15 @@ describe('StudySession', () => {
     expect(session.snapshot.current?.card.cardId).toBe('overdue');
     expect(session.snapshot.plannedTotal).toBe(2);
   });
+  it('counts due cards and caps a round without changing due ordering', async () => {
+    const source = { async listStudyCandidates() { return [card('new-b', null, '2026-08-04T00:00:00.000Z'), card('due-a', '2026-08-10T00:00:00.000Z'), card('new-a', null, '2026-08-03T00:00:00.000Z')]; } };
+    const service = new StudySessionService(source, new MemoryEvents(), new MemoryStates(), new SimpleReviewScheduler());
+    const now = new Date('2026-08-28T00:00:00.000Z');
+    expect(await service.countDue(now)).toBe(3);
+    const session = await service.createSession(now, 2);
+    expect(session.snapshot.plannedTotal).toBe(2);
+    expect(session.snapshot.current?.card.cardId).toBe('due-a');
+  });
   it('adds one same-session retry for a forgotten card and then completes', async () => {
     const events = new MemoryEvents(); const states = new MemoryStates();
     const session = await new StudySessionService({ async listStudyCandidates() { return [card('car', null)]; } }, events, states, new SimpleReviewScheduler()).createSession(new Date('2026-08-28T00:00:00.000Z'));

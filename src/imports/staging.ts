@@ -11,6 +11,7 @@ export interface ProposedVocabulary {
   translation: string;
   definition?: string;
   contextSentence?: string;
+  exampleTranslation?: string;
   partOfSpeech?: string;
   usefulnessScore?: number;
   confidenceScore?: number;
@@ -32,7 +33,7 @@ export interface ImportBatch {
   createdAt: string;
 }
 
-function optionalString(key: 'definition' | 'contextSentence' | 'partOfSpeech', value: string | null) {
+function optionalString(key: 'definition' | 'contextSentence' | 'exampleTranslation' | 'partOfSpeech', value: string | null) {
   return value === null ? {} : { [key]: value };
 }
 
@@ -95,15 +96,16 @@ export class ImportStagingService {
             : 'NONE';
 
         await txn.runAsync(
-          `INSERT INTO import_candidates(id, batch_id, term, translation, definition, context_sentence, part_of_speech,
+          `INSERT INTO import_candidates(id, batch_id, term, translation, definition, context_sentence, example_translation, part_of_speech,
              usefulness_score, confidence_score, duplicate_kind, selected, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
           createId('candidate'),
           batchId,
           term,
           translation,
           candidate.definition?.trim() || null,
           candidate.contextSentence?.trim() || null,
+          candidate.exampleTranslation?.trim() || null,
           candidate.partOfSpeech?.trim() || null,
           candidate.usefulnessScore ?? null,
           candidate.confidenceScore ?? null,
@@ -150,6 +152,7 @@ export class ImportStagingService {
       translation: string;
       definition: string | null;
       context_sentence: string | null;
+      example_translation: string | null;
       part_of_speech: string | null;
       usefulness_score: number | null;
       confidence_score: number | null;
@@ -168,6 +171,7 @@ export class ImportStagingService {
       translation: row.translation,
       ...optionalString('definition', row.definition),
       ...optionalString('contextSentence', row.context_sentence),
+      ...optionalString('exampleTranslation', row.example_translation),
       ...optionalString('partOfSpeech', row.part_of_speech),
       ...optionalNumber('usefulnessScore', row.usefulness_score),
       ...optionalNumber('confidenceScore', row.confidence_score),
@@ -187,14 +191,15 @@ export class ImportStagingService {
 
   async updateCandidate(
     candidateId: string,
-    patch: Pick<ProposedVocabulary, 'term' | 'translation' | 'definition' | 'contextSentence'>,
+    patch: Pick<ProposedVocabulary, 'term' | 'translation' | 'definition' | 'contextSentence' | 'exampleTranslation'>,
   ): Promise<void> {
     await this.db.runAsync(
-      `UPDATE import_candidates SET term = ?, translation = ?, definition = ?, context_sentence = ? WHERE id = ? AND status = 'PENDING'`,
+      `UPDATE import_candidates SET term = ?, translation = ?, definition = ?, context_sentence = ?, example_translation = ? WHERE id = ? AND status = 'PENDING'`,
       patch.term.trim(),
       patch.translation.trim(),
       patch.definition?.trim() || null,
       patch.contextSentence?.trim() || null,
+      patch.exampleTranslation?.trim() || null,
       candidateId,
     );
   }
@@ -272,6 +277,8 @@ export class ImportStagingService {
           kind: item.term.includes(' ') ? 'PHRASE' : 'WORD',
           translation: item.translation,
           ...(item.definition === undefined ? {} : { definition: item.definition }),
+          ...(item.contextSentence === undefined ? {} : { contextSentence: item.contextSentence }),
+          ...(item.exampleTranslation === undefined ? {} : { exampleTranslation: item.exampleTranslation }),
           ...(item.partOfSpeech === undefined ? {} : { partOfSpeech: item.partOfSpeech }),
         });
         await this.attachImportProvenance(batch, item, created.senseId);

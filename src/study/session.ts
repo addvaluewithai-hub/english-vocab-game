@@ -156,9 +156,20 @@ export class StudySessionService {
     private readonly scheduler: ReviewScheduler,
   ) {}
 
-  async createSession(now = new Date()): Promise<StudySession> {
+  private async dueCandidates(now: Date): Promise<StudyCard[]> {
     const candidates = await this.source.listStudyCandidates();
-    const due = candidates.filter((card) => isDue(card, now)).sort(sortCandidates);
-    return new StudySession(createId('session'), due, this.events, this.states, this.scheduler);
+    return candidates.filter((card) => isDue(card, now)).sort(sortCandidates);
+  }
+
+  async countDue(now = new Date()): Promise<number> {
+    return (await this.dueCandidates(now)).length;
+  }
+
+  async createSession(now = new Date(), limit?: number): Promise<StudySession> {
+    const due = await this.dueCandidates(now);
+    const capped = typeof limit === 'number' && Number.isFinite(limit) && limit > 0
+      ? due.slice(0, Math.floor(limit))
+      : due;
+    return new StudySession(createId('session'), capped, this.events, this.states, this.scheduler);
   }
 }

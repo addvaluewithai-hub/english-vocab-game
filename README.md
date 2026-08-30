@@ -1,27 +1,36 @@
-# English Vocab Game
+# Vocab Flow
 
-Offline-first vocabulary recall app built with Expo + React Native + TypeScript.
+An Expo vocabulary-learning app with a local-first Bank, fast swipe review, a structured A1 Course Adventure, and Gemini-assisted vocabulary capture.
 
-The learning model is **Term/Phrase → Sense → Context → Review**, not `word → one translation`.
+## Current learning flow
 
-## Stack
-- Expo SDK 57 / React Native / TypeScript
-- Expo Router
-- Expo SQLite
-- React Native Gesture Handler + Reanimated
-- Expo Haptics
-- Neon Postgres planned for cloud persistence after the local MVP
+- First launch starts directly in English → Arabic.
+- Course Adventure contains the locked A1 lexical/chunk inventory organized as 6 worlds / 45 missions.
+- Add selected course items to the shared Bank and study them with quick left/right swipe grading.
+- Choose 5, 10, 20, or all due cards before a fresh round.
 
-## Development
-```bash
-npm install
-npm run start
-npm run typecheck
-npm run lint
-npm test
-```
+## Gemini
 
-Use Expo Go where supported for fast iteration. A development build is the production-grade native testing path.
+Manual Add Vocabulary includes **Fill with Gemini** for Arabic meaning, English definition, part of speech, a natural example sentence, and Arabic example translation.
 
-## Structure
-See [`docs/architecture.md`](./docs/architecture.md) and the authoritative roadmap in [`Tasks/README.md`](./Tasks/README.md).
+**Gemini Smart Import** supports:
+
+- pasted text or word lists
+- one or multiple images (up to three in the quick path)
+- camera capture
+- uploaded PDFs
+- public YouTube URLs
+- public web URLs / linked public documents
+
+The import pipeline deliberately runs in two AI stages:
+
+1. Gemini discovers useful English words and phrases without translating everything.
+2. The learner selects the candidates they want.
+3. Gemini enriches only the selected items with translation and examples.
+4. The learner gets a final editable review before anything is added to the Bank.
+
+This keeps model usage lower and prevents unwanted vocabulary from being auto-added.
+
+## Web hosting
+
+Cloudflare Pages is the primary web host. See [`docs/CLOUDFLARE.md`](docs/CLOUDFLARE.md) for build settings and the server-side `GEMINI_API_KEY` requirement.

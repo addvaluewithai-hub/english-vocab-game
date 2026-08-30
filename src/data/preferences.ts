@@ -117,6 +117,29 @@ export class PreferencesRepository {
   }
 }
 
+export async function ensureDefaultLanguagePair(db: SQLiteDatabase): Promise<void> {
+  const repo = new PreferencesRepository(asSqlDatabase(db));
+  const preferences = await repo.load();
+  const pairs = await repo.listLanguagePairs(preferences.activeOwnerKey);
+
+  if (pairs.length) {
+    const active = pairs.find((item) => item.id === preferences.activeLanguagePairId) ?? pairs[0];
+    if (active && active.id !== preferences.activeLanguagePairId) {
+      await repo.set('active_language_pair_id', active.id);
+    }
+    return;
+  }
+
+  const pair = await repo.createLanguagePair({
+    ownerKey: preferences.activeOwnerKey,
+    targetLanguageCode: 'en',
+    targetLanguageName: 'English',
+    referenceLanguageCode: 'ar',
+    referenceLanguageName: 'Arabic',
+  });
+  await repo.set('active_language_pair_id', pair.id);
+}
+
 export async function claimGuestLanguagePairs(db: SQLiteDatabase, userId: string, now = new Date()): Promise<number> {
   const sql = asSqlDatabase(db);
   const preferences = new PreferencesRepository(sql);

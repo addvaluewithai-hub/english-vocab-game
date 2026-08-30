@@ -14,7 +14,9 @@ describe('migrateDatabase', () => {
   it('creates the latest schema from a fresh database and is repeatable', async () => {
     const db = new FakeDatabase();
     await migrateDatabase(db as unknown as SQLiteDatabase);
+    expect(LATEST_DATABASE_VERSION).toBe(6);
     expect(db.userVersion).toBe(LATEST_DATABASE_VERSION);
+    expect(db.executed.join('\n')).toContain('ALTER TABLE import_candidates ADD COLUMN example_translation TEXT');
     const firstRunCount = db.executed.length;
     await migrateDatabase(db as unknown as SQLiteDatabase);
     expect(db.userVersion).toBe(LATEST_DATABASE_VERSION);

@@ -1,11 +1,11 @@
+import type { ReactNode } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
-import type { ReviewGrade, StudyCard } from '@/domain/types';
+import type { ReviewGrade } from '@/domain/types';
 import { colors, motion, spacing, typography } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
-import { VocabularyCard } from './vocabulary-card';
 
 async function hapticForGrade(grade: ReviewGrade) {
   if (process.env.EXPO_OS !== 'ios') return;
@@ -17,16 +17,12 @@ async function hapticForGrade(grade: ReviewGrade) {
 }
 
 export function SwipeGradeCard({
-  card,
-  revealed,
+  children,
   disabled,
-  onReveal,
   onGrade,
 }: {
-  card: StudyCard;
-  revealed: boolean;
+  children: ReactNode;
   disabled: boolean;
-  onReveal: () => void;
   onGrade: (grade: ReviewGrade) => void;
 }) {
   const translateX = useSharedValue(0);
@@ -34,28 +30,28 @@ export function SwipeGradeCard({
   const { width } = useWindowDimensions();
   const exitDistance = width * 1.25;
 
-  // The parent keys this component by queue item, so a new card gets a fresh
-  // shared value without mutating animation state from a React effect.
   const finishGrade = (grade: ReviewGrade) => {
     void hapticForGrade(grade);
     onGrade(grade);
   };
 
   const pan = Gesture.Pan()
-    .enabled(revealed && !disabled)
-    .activeOffsetX([-12, 12])
-    .failOffsetY([-22, 22])
+    .enabled(!disabled)
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-28, 28])
+    .shouldCancelWhenOutside(false)
     .onUpdate((event) => {
       translateX.value = event.translationX;
     })
     .onEnd((event) => {
-      if (Math.abs(event.translationX) < motion.swipeThreshold) {
+      const committed = Math.abs(event.translationX) >= motion.swipeThreshold || Math.abs(event.velocityX) >= 650;
+      if (!committed) {
         translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
         return;
       }
 
-      const grade: ReviewGrade = event.translationX > 0 ? 'KNEW' : 'FORGOT';
-      const destination = event.translationX > 0 ? exitDistance : -exitDistance;
+      const grade: ReviewGrade = event.translationX > 0 || event.velocityX > 0 ? 'KNEW' : 'FORGOT';
+      const destination = grade === 'KNEW' ? exitDistance : -exitDistance;
       translateX.value = reducedMotion
         ? destination
         : withTiming(destination, { duration: motion.quick });
@@ -85,7 +81,7 @@ export function SwipeGradeCard({
     <View style={{ width: '100%' }}>
       <GestureDetector gesture={pan}>
         <Animated.View style={cardStyle}>
-          <VocabularyCard card={card} revealed={revealed} onReveal={onReveal} />
+          {children}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -101,14 +97,7 @@ export function SwipeGradeCard({
               forgotStyle,
             ]}
           >
-            <Text
-              selectable
-              style={{
-                color: colors.danger,
-                fontSize: typography.label,
-                fontWeight: '900',
-              }}
-            >
+            <Text selectable style={{ color: colors.danger, fontSize: typography.label, fontWeight: '900' }}>
               STUDY AGAIN ↻
             </Text>
           </Animated.View>
@@ -127,14 +116,7 @@ export function SwipeGradeCard({
               knewStyle,
             ]}
           >
-            <Text
-              selectable
-              style={{
-                color: colors.success,
-                fontSize: typography.label,
-                fontWeight: '900',
-              }}
-            >
+            <Text selectable style={{ color: colors.success, fontSize: typography.label, fontWeight: '900' }}>
               I KNEW IT ✓
             </Text>
           </Animated.View>

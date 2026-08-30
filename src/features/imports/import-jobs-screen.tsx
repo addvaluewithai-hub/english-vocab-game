@@ -48,31 +48,56 @@ export function ImportJobsScreen() {
   }
 
   if (pairLoading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="Loading import jobs" /></View>;
-  if (!pair) return <EmptyState title="Choose languages first" body="Imports belong to one language pair so candidates cannot leak between banks." action={<Link href="/settings" asChild><ActionButton label="Open settings" /></Link>} />;
+  if (!pair) return <EmptyState title="Preparing English" body="English → Arabic is created automatically on first launch." />;
   if (jobs === null) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="Loading import jobs" /></View>;
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ gap: spacing.xs }}>
         <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Smart imports</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Jobs are durable on this device. Long extraction work runs outside the study UI, and candidates must pass review before entering your bank.</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Give Gemini text, images, a PDF, a public YouTube video, or a public web URL. It finds vocabulary first, then you choose what deserves a card.</Text>
       </View>
-      {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted }}>{message}</Text></Surface> : null}
-      {jobs.length === 0 ? <EmptyState title="No import jobs yet" body="The shared job framework is ready. Text, PDF, YouTube, URL, and photo source adapters are added in the next import tasks." /> : jobs.map((job) => (
-        <Surface key={job.id} style={{ padding: spacing.md, gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ flex: 1, gap: spacing.xs }}>
-              <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>{job.sourceLabel || `${job.sourceType} import`}</Text>
-              <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{new Date(job.updatedAt).toLocaleString()}</Text>
-            </View>
-            <Chip>{job.status.replace('_', ' ')}</Chip>
+
+      <Surface style={{ padding: spacing.lg, gap: spacing.md, backgroundColor: colors.ink }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+          <Text aria-hidden style={{ fontSize: 38 }}>✨</Text>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text selectable style={{ color: colors.surface, fontSize: 21, fontWeight: '900' }}>Gemini Smart Import</Text>
+            <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Discovery happens before translation, so AI work is spent only on vocabulary you select.</Text>
           </View>
-          <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>{statusCopy(job)}</Text>
-          {job.status === 'NEEDS_REVIEW' ? <Link href="/import-staging" asChild><ActionButton label="Review candidates" /></Link> : null}
-          {job.status === 'FAILED' || job.status === 'CANCELLED' ? <ActionButton label="Queue safe retry" onPress={() => void retry(job)} /> : null}
-          {job.status === 'QUEUED' || job.status === 'PROCESSING' ? <ActionButton label="Cancel import" tone="danger" onPress={() => void cancel(job)} /> : null}
-        </Surface>
-      ))}
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          <Chip>✍️ Text</Chip><Chip>🖼️ Images</Chip><Chip>📄 PDF</Chip><Chip>▶️ YouTube</Chip><Chip>🌐 URL</Chip>
+        </View>
+        <Link href="/smart-import" asChild><ActionButton label="Start smart import" /></Link>
+      </Surface>
+
+      <Surface style={{ padding: spacing.md, gap: spacing.xs }}>
+        <Text selectable style={{ color: colors.ink, fontWeight: '900' }}>How it works</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, lineHeight: 20 }}>1. Gemini discovers useful words and phrases. 2. You choose. 3. Gemini translates only your selection and writes examples. 4. Final editable review. 5. Add to Bank.</Text>
+      </Surface>
+
+      {message ? <Surface style={{ padding: spacing.md }}><Text accessibilityLiveRegion="polite" selectable style={{ color: colors.inkMuted }}>{message}</Text></Surface> : null}
+      {jobs.length ? (
+        <View style={{ gap: spacing.md }}>
+          <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '900' }}>Previous import jobs</Text>
+          {jobs.map((job) => (
+            <Surface key={job.id} style={{ padding: spacing.md, gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <View style={{ flex: 1, gap: spacing.xs }}>
+                  <Text selectable style={{ color: colors.ink, fontSize: 19, fontWeight: '800' }}>{job.sourceLabel || `${job.sourceType} import`}</Text>
+                  <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small }}>{new Date(job.updatedAt).toLocaleString()}</Text>
+                </View>
+                <Chip>{job.status.replace('_', ' ')}</Chip>
+              </View>
+              <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>{statusCopy(job)}</Text>
+              {job.status === 'NEEDS_REVIEW' ? <Link href="/import-staging" asChild><ActionButton label="Review candidates" /></Link> : null}
+              {job.status === 'FAILED' || job.status === 'CANCELLED' ? <ActionButton label="Queue safe retry" onPress={() => void retry(job)} /> : null}
+              {job.status === 'QUEUED' || job.status === 'PROCESSING' ? <ActionButton label="Cancel import" tone="danger" onPress={() => void cancel(job)} /> : null}
+            </Surface>
+          ))}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
