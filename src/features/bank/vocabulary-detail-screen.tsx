@@ -28,7 +28,7 @@ function kindLabel(kind: VocabularyDetail['termKind']): string {
 function lifecycleLabel(value: VocabularyDetail['lifecycle']): string {
   if (value === 'NEW') return 'جديدة';
   if (value === 'LEARNING') return 'بتتعلمها';
-  if (value === 'STRONG') return 'ثابتة';
+  if (value === 'REVIEW' || value === 'MASTERED') return 'ثابتة';
   return value;
 }
 
