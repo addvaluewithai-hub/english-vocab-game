@@ -19,7 +19,7 @@ const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const 
 function lifecycleLabel(value: BankItem['lifecycle']): string {
   if (value === 'NEW') return 'جديدة';
   if (value === 'LEARNING') return 'بتتعلمها';
-  if (value === 'STRONG') return 'ثابتة';
+  if (value === 'REVIEW' || value === 'MASTERED') return 'ثابتة';
   return value;
 }
 
