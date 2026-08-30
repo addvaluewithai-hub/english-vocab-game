@@ -5,13 +5,13 @@ import type { StudyCard } from '@/domain/types';
 import { colors, motion, radius, spacing, typography } from '@/theme/tokens';
 import { useReducedMotion } from '@/utils/use-reduced-motion';
 import { PronunciationButton } from './pronunciation-button';
-import { Chip, Surface } from './primitives';
+import { Surface } from './primitives';
 
 export function VocabularyCard({ card, revealed, onReveal }: { card: StudyCard; revealed: boolean; onReveal: () => void }) {
   const progress = useSharedValue(revealed ? 1 : 0);
   const reducedMotion = useReducedMotion();
   const { height } = useWindowDimensions();
-  const cardHeight = Math.min(520, Math.max(360, height * 0.53));
+  const cardHeight = Math.min(500, Math.max(330, height * 0.5));
 
   useEffect(() => {
     progress.value = reducedMotion ? (revealed ? 1 : 0) : withTiming(revealed ? 1 : 0, { duration: motion.standard });
@@ -29,42 +29,35 @@ export function VocabularyCard({ card, revealed, onReveal }: { card: StudyCard; 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={revealed ? `${card.term}. Answer revealed: ${card.translation}` : `${card.term}. Double tap to reveal the answer.`}
-      accessibilityHint={revealed ? 'Choose Knew it or Forgot below.' : 'Reveals the translation and context.'}
+      accessibilityLabel={revealed ? `${card.term}. Answer revealed: ${card.translation}` : `${card.term}. Tap to reveal the answer.`}
+      accessibilityHint={revealed ? 'Swipe right if you knew it or left if you forgot.' : 'Reveals the meaning and example.'}
       onPress={() => !revealed && onReveal()}
       style={{ width: '100%', height: cardHeight }}
     >
       <Animated.View style={[{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backfaceVisibility: 'hidden' }, frontStyle]}>
         <Surface style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
-          <View style={{ gap: spacing.md, alignItems: 'center' }}>
-            <Chip>{card.termKind === 'PHRASE' ? 'PHRASE' : 'WORD'}</Chip>
-            <Text selectable adjustsFontSizeToFit minimumFontScale={0.55} numberOfLines={3} style={{ color: colors.ink, fontSize: typography.display, lineHeight: 54, fontWeight: '800', textAlign: 'center' }}>
+          <View style={{ gap: spacing.lg, alignItems: 'center', width: '100%' }}>
+            <Text selectable adjustsFontSizeToFit minimumFontScale={0.55} numberOfLines={3} style={{ color: colors.ink, fontSize: typography.display, lineHeight: 56, fontWeight: '900', textAlign: 'center' }}>
               {card.term}
             </Text>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, textAlign: 'center' }}>Recall the meaning, then tap to reveal</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, textAlign: 'center' }}>Tap only if you need the answer</Text>
           </View>
         </Surface>
       </Animated.View>
 
       <Animated.View pointerEvents={revealed ? 'auto' : 'none'} style={[{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backfaceVisibility: 'hidden' }, backStyle]}>
         <Surface style={{ flex: 1, padding: spacing.xl, justifyContent: 'center' }}>
-          <View style={{ gap: spacing.md }}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              {card.partOfSpeech ? <Chip>{card.partOfSpeech}</Chip> : null}
-              {card.sourceTitle ? <Chip>{card.sourceTitle}</Chip> : null}
-            </View>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '700' }}>{card.term}</Text>
-            <Text selectable style={{ color: colors.ink, fontSize: 34, lineHeight: 46, fontWeight: '800', textAlign: card.referenceLanguageCode === 'ar' ? 'right' : 'left', writingDirection: card.referenceLanguageCode === 'ar' ? 'rtl' : 'ltr' }}>
+          <View style={{ gap: spacing.lg, alignItems: 'stretch' }}>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '800', textAlign: 'center' }}>{card.term}</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: 36, lineHeight: 48, fontWeight: '900', textAlign: 'center', writingDirection: card.referenceLanguageCode === 'ar' ? 'rtl' : 'ltr' }}>
               {card.translation}
             </Text>
-            <PronunciationButton uri={card.audioUri} compact />
-            {card.definition ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>{card.definition}</Text> : null}
+            <View style={{ alignItems: 'center' }}><PronunciationButton uri={card.audioUri} compact /></View>
             {card.contextSentence ? (
-              <View style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.md, borderCurve: 'continuous', padding: spacing.md }}>
-                <Text selectable style={{ color: colors.ink, fontSize: typography.body, lineHeight: 25 }}>“{card.contextSentence}”</Text>
+              <View style={{ backgroundColor: colors.surfaceMuted, borderRadius: radius.lg, borderCurve: 'continuous', padding: spacing.md }}>
+                <Text selectable style={{ color: colors.ink, fontSize: typography.body, lineHeight: 26, textAlign: 'center' }}>“{card.contextSentence}”</Text>
               </View>
             ) : null}
-            {card.note ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, lineHeight: 20 }}>Note: {card.note}</Text> : null}
           </View>
         </Surface>
       </Animated.View>
