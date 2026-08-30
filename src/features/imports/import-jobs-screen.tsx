@@ -55,7 +55,7 @@ export function ImportJobsScreen() {
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ gap: spacing.xs }}>
         <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Smart imports</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Give Gemini text, images, a PDF, or a public YouTube video. It finds vocabulary first, then you choose what deserves a card.</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>Give Gemini text, images, a PDF, a public YouTube video, or a public web URL. It finds vocabulary first, then you choose what deserves a card.</Text>
       </View>
 
       <Surface style={{ padding: spacing.lg, gap: spacing.md, backgroundColor: colors.ink }}>
@@ -63,11 +63,11 @@ export function ImportJobsScreen() {
           <Text aria-hidden style={{ fontSize: 38 }}>✨</Text>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text selectable style={{ color: colors.surface, fontSize: 21, fontWeight: '900' }}>Gemini Smart Import</Text>
-            <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Text · Images · PDF · YouTube. Discovery happens before translation, so AI work is spent only on the vocabulary you select.</Text>
+            <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.label, lineHeight: 21 }}>Discovery happens before translation, so AI work is spent only on vocabulary you select.</Text>
           </View>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          <Chip>✍️ Text</Chip><Chip>🖼️ Images</Chip><Chip>📄 PDF</Chip><Chip>▶️ YouTube</Chip>
+          <Chip>✍️ Text</Chip><Chip>🖼️ Images</Chip><Chip>📄 PDF</Chip><Chip>▶️ YouTube</Chip><Chip>🌐 URL</Chip>
         </View>
         <Link href="/smart-import" asChild><ActionButton label="Start smart import" /></Link>
       </Surface>
