@@ -67,7 +67,7 @@ describe('learning intelligence', () => {
   it('computes explainable retention and due-first advice', () => {
     expect(retentionRate(8, 2)).toBe(0.8);
     expect(retentionRate(0, 0)).toBeNull();
-    expect(buildLearningInsight({ dueNow: 3, retention30Days: 0.9, reviewed30Days: 10 })).toContain('3 cards are due now');
+    expect(buildLearningInsight({ dueNow: 3, retention30Days: 0.9, reviewed30Days: 10 })).toContain('عندك 3 كارت محتاج مراجعة دلوقتي');
   });
 
   it('validates reminder times and rolls past times to the next day', () => {
