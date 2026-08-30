@@ -7,12 +7,14 @@ import { useActiveLanguagePair } from '@/data/use-active-language-pair';
 import { loadLearningStats, type LearningStats } from '@/stats/metrics';
 import { colors, spacing, typography } from '@/theme/tokens';
 
+const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
+
 function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <Surface style={{ flexGrow: 1, flexBasis: 150, padding: spacing.md, gap: spacing.xs }}>
-      <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '700' }}>{label}</Text>
+    <Surface style={{ flexGrow: 1, flexBasis: 150, padding: spacing.md, gap: spacing.xs, alignItems: 'flex-end' }}>
+      <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '700', ...rtlText }}>{label}</Text>
       <Text selectable style={{ color: colors.ink, fontSize: 30, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{value}</Text>
-      {detail ? <Text selectable style={{ color: colors.inkMuted, lineHeight: 20 }}>{detail}</Text> : null}
+      {detail ? <Text selectable style={{ color: colors.inkMuted, lineHeight: 20, ...rtlText }}>{detail}</Text> : null}
     </Surface>
   );
 }
@@ -33,46 +35,46 @@ export function StatsScreen() {
         setError(null);
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not load learning stats.');
+        if (!cancelled) setError(caught instanceof Error ? caught.message : 'مقدرناش نحمّل تقدمك.');
       });
     return () => { cancelled = true; };
   }, [pair, sqlite]);
 
-  if (pairLoading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="Loading learning stats" /></View>;
-  if (!pair) return <EmptyState title="Choose a language pair first" body="Stats stay scoped to one learning language so progress from different banks is never mixed." action={<Link href="/settings" asChild><ActionButton label="Choose languages" /></Link>} />;
-  if (error) return <EmptyState title="Stats are unavailable" body={error} action={<Link href="/" asChild><ActionButton label="Back to study" /></Link>} />;
-  if (!stats) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="Calculating learning stats" /></View>;
+  if (pairLoading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="بنحمّل تقدمك" /></View>;
+  if (!pair) return <EmptyState title="بنجهز الإنجليزي" body="English → Arabic بيتعمل تلقائي أول ما تفتح التطبيق." />;
+  if (error) return <EmptyState title="تقدمك مش متاح دلوقتي" body={error} action={<Link href="/" asChild><ActionButton label="ارجع للرئيسية" /></Link>} />;
+  if (!stats) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><ActivityIndicator accessibilityLabel="بنحسب تقدمك" /></View>;
 
   const retention = stats.retention30Days === null ? '—' : `${Math.round(stats.retention30Days * 100)}%`;
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: 80 }} style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <View style={{ gap: spacing.xs }}>
-        <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800' }}>Learning pulse</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>{pair.targetLanguageName} · explainable metrics from your review history</Text>
+      <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
+        <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '800', ...rtlText }}>تقدمك</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25, ...rtlText }}>أرقام واضحة من مراجعاتك الفعلية، من غير تعقيد.</Text>
       </View>
 
-      <Surface style={{ padding: spacing.lg, gap: spacing.sm }}>
-        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>What to do next</Text>
-        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25 }}>{stats.insight}</Text>
-        <Link href="/" asChild><ActionButton label={stats.dueNow > 0 ? `Review ${stats.dueNow} due now` : 'Open study'} /></Link>
+      <Surface style={{ padding: spacing.lg, gap: spacing.sm, alignItems: 'flex-end' }}>
+        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800', ...rtlText }}>تعمل إيه دلوقتي؟</Text>
+        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 25, ...rtlText }}>{stats.insight}</Text>
+        <View style={{ width: '100%' }}><Link href="/study" asChild><ActionButton label={stats.dueNow > 0 ? `راجع ${stats.dueNow} كلمة دلوقتي` : 'افتح المذاكرة'} /></Link></View>
       </Surface>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        <Metric label="Due now" value={String(stats.dueNow)} detail="New + scheduled reviews" />
-        <Metric label="30-day recall" value={retention} detail={`${stats.remembered30Days} knew · ${stats.forgotten30Days} forgot`} />
-        <Metric label="Reviewed today" value={String(stats.reviewedToday)} detail={`${stats.reviewed30Days} in the last 30 days`} />
-        <Metric label="7-day momentum" value={`${stats.activeDays7}/7`} detail="Study days, not a punitive streak" />
+        <Metric label="محتاجين مراجعة" value={String(stats.dueNow)} detail="جديدة + مراجعات مستحقة" />
+        <Metric label="تذكر آخر 30 يوم" value={retention} detail={`${stats.remembered30Days} عارفهم · ${stats.forgotten30Days} نسيتهم`} />
+        <Metric label="راجعت النهارده" value={String(stats.reviewedToday)} detail={`${stats.reviewed30Days} آخر 30 يوم`} />
+        <Metric label="نشاط آخر 7 أيام" value={`${stats.activeDays7}/7`} detail="أيام ذاكرت فيها، مش streak عقابي" />
       </View>
 
       <Surface style={{ padding: spacing.lg, gap: spacing.md }}>
-        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Vocabulary state</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg }}>
-          <View><Text selectable style={{ color: colors.inkMuted }}>Total</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.totalCards}</Text></View>
-          <View><Text selectable style={{ color: colors.inkMuted }}>New</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.newCards}</Text></View>
-          <View><Text selectable style={{ color: colors.inkMuted }}>Learning</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.learningCards}</Text></View>
-          <View><Text selectable style={{ color: colors.inkMuted }}>Strong</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.strongCards}</Text></View>
+        <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '800', ...rtlText }}>حالة كلماتك</Text>
+        <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: spacing.lg }}>
+          <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: colors.inkMuted, ...rtlText }}>الكل</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.totalCards}</Text></View>
+          <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: colors.inkMuted, ...rtlText }}>جديدة</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.newCards}</Text></View>
+          <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: colors.inkMuted, ...rtlText }}>بتتعلمها</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.learningCards}</Text></View>
+          <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: colors.inkMuted, ...rtlText }}>ثابتة</Text><Text selectable style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>{stats.strongCards}</Text></View>
         </View>
-        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22 }}>“Strong” means the scheduler has moved the card into review/mastered state. It does not mean the word is learned forever.</Text>
+        <Text selectable style={{ color: colors.inkMuted, lineHeight: 22, ...rtlText }}>“ثابتة” معناها إن نظام المراجعة شايف إن الكارت بقى قوي، مش معناها إنك مستحيل تنساه بعد كده.</Text>
       </Surface>
     </ScrollView>
   );
