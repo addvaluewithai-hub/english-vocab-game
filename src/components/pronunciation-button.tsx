@@ -42,7 +42,7 @@ export function PronunciationButton({
       }
       player.play();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Pronunciation audio is unavailable.');
+      setError(caught instanceof Error ? caught.message : 'الصوت مش متاح دلوقتي.');
     } finally {
       setPreparing(false);
     }
@@ -51,16 +51,16 @@ export function PronunciationButton({
   if (!uri && !pronunciation) return null;
 
   const buttonLabel = preparing
-    ? 'Preparing audio…'
+    ? 'بنجهز الصوت…'
     : status.playing
-      ? '↻ Replay audio'
-      : '▶ Pronunciation';
+      ? '↻ اسمع تاني'
+      : '▶ اسمع النطق';
 
   return (
     <View style={{ gap: spacing.xs, alignItems: compact ? 'center' : 'flex-start' }}>
       {pronunciation ? <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label }}>{pronunciation}</Text> : null}
-      {uri ? <ActionButton accessibilityLabel={preparing ? 'Preparing pronunciation audio' : status.playing ? 'Replay pronunciation' : 'Play pronunciation'} label={buttonLabel} onPress={() => void replay()} /> : null}
-      {error ? <Text accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: typography.small }}>Audio unavailable. You can keep studying.</Text> : null}
+      {uri ? <ActionButton accessibilityLabel={preparing ? 'بنجهز صوت النطق' : status.playing ? 'اسمع النطق تاني' : 'اسمع النطق'} label={buttonLabel} onPress={() => void replay()} /> : null}
+      {error ? <Text accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: typography.small, textAlign: 'right', writingDirection: 'rtl' }}>الصوت مش شغال دلوقتي، تقدر تكمل مذاكرة عادي.</Text> : null}
     </View>
   );
 }
