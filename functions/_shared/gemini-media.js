@@ -35,7 +35,7 @@ function extractInteractionText(payload) {
   return found.join('').trim();
 }
 
-async function callGenerateContent({ apiKey, model, parts, maxOutputTokens }) {
+async function callGenerateContent({ apiKey, model, parts, maxOutputTokens, tools }) {
   const startedAt = Date.now();
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
@@ -45,6 +45,7 @@ async function callGenerateContent({ apiKey, model, parts, maxOutputTokens }) {
     },
     body: JSON.stringify({
       contents: [{ role: 'user', parts }],
+      ...(tools?.length ? { tools } : {}),
       generationConfig: { maxOutputTokens, temperature: 0.1 },
     }),
   });
@@ -108,6 +109,20 @@ export async function routeGeminiMedia({ apiKey, parts, maxOutputTokens = 1600, 
   if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
   return routeChain(
     (model) => callGenerateContent({ apiKey, model, parts, maxOutputTokens }),
+    acceptText,
+  );
+}
+
+export async function routeGeminiUrl({ apiKey, url, prompt, maxOutputTokens = 1800, acceptText = () => true }) {
+  if (!apiKey) return { ok: false, error: 'missing-api-key', attempts: [] };
+  return routeChain(
+    (model) => callGenerateContent({
+      apiKey,
+      model,
+      parts: [{ text: `${prompt}\n\nPUBLIC SOURCE URL:\n${url}` }],
+      maxOutputTokens,
+      tools: [{ url_context: {} }],
+    }),
     acceptText,
   );
 }
