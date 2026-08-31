@@ -30,6 +30,8 @@ export default function RootLayout() {
             <Stack.Screen name="add" options={{ title: 'ضيف كلمات', headerShown: false }} />
             <Stack.Screen name="manual-add" options={{ title: 'ضيف بسرعة', headerShown: false }} />
             <Stack.Screen name="course-library" options={{ title: 'الكورس', headerShown: false }} />
+            <Stack.Screen name="a1-course" options={{ title: 'A1 Adventure', headerShown: false }} />
+            <Stack.Screen name="mahand-course" options={{ title: 'مهند', headerShown: false }} />
             <Stack.Screen name="smart-import" options={{ title: 'إضافة ذكية', headerShown: false }} />
             <Stack.Screen name="image-import" options={{ title: 'إضافة ذكية' }} />
             <Stack.Screen name="vocabulary/[cardId]" options={{ title: 'تفاصيل الكلمة' }} />
