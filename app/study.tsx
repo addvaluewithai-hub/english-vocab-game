@@ -1,5 +1,5 @@
-import { StudyScreen } from '@/study/study-screen';
+import { MahandStudyScreen } from '@/features/mahand-simple/mahand-study-screen';
 
 export default function StudyRoute() {
-  return <StudyScreen />;
+  return <MahandStudyScreen />;
 }
