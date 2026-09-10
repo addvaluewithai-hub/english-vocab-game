@@ -24,7 +24,10 @@ export function SpeechButton({ text, label }: { text: string; label: string }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${text}`}
-      onPress={() => void speak()}
+      onPress={(event) => {
+        event.stopPropagation();
+        void speak();
+      }}
       style={({ pressed }) => ({
         minHeight: 42,
         paddingHorizontal: spacing.md,
