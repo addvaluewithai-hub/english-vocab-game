@@ -20,6 +20,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="index" />
             <Stack.Screen name="study" />
+            <Stack.Screen name="hard-words" />
           </Stack>
         </View>
       </SQLiteProvider>
