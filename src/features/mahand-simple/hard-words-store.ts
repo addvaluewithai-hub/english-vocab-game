@@ -6,6 +6,16 @@ export async function initializeMahandDatabase(db: SQLiteDatabase): Promise<void
       item_id TEXT PRIMARY KEY NOT NULL,
       added_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS mahand_unit_results (
+      item_id TEXT PRIMARY KEY NOT NULL,
+      unit_id TEXT NOT NULL,
+      grade TEXT NOT NULL CHECK (grade IN ('KNEW', 'FORGOT')),
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mahand_unit_results_unit_grade
+      ON mahand_unit_results(unit_id, grade);
   `);
 }
 
