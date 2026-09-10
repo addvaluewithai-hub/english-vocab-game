@@ -73,7 +73,7 @@ export function MahandStudyScreen() {
   }
 
   function grade(value: ReviewGrade) {
-    if (!current || !revealed) return;
+    if (!current) return;
     if (value === 'KNEW') setKnew((count) => count + 1);
     else setForgot((count) => count + 1);
     setIndex((value) => value + 1);
@@ -153,7 +153,7 @@ export function MahandStudyScreen() {
           </Surface>
         ) : current ? (
           <>
-            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-start', gap: spacing.sm }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={hardWordIds.has(current.id) ? 'الكلمة موجودة في الكلمات العنيدة' : 'ضيف الكلمة للكلمات العنيدة'}
@@ -173,13 +173,12 @@ export function MahandStudyScreen() {
                   {hardWordIds.has(current.id) ? '✓ في الكلمات العنيدة' : '+ الكلمات العنيدة'}
                 </Text>
               </Pressable>
-              <SpeechButton text={current.term} label="نطق الكلمة" />
             </View>
 
-            <SwipeGradeCard key={current.id} disabled={!revealed} onGrade={grade}>
+            <SwipeGradeCard key={current.id} disabled={false} onGrade={grade}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={revealed ? `${current.term}. ${current.translation}` : `${current.term}. دوس عشان تشوف المعنى.`}
+                accessibilityLabel={revealed ? `${current.term}. ${current.translation}` : `${current.term}. دوس عشان تشوف المعنى، أو اسحب مباشرة.`}
                 onPress={() => setRevealed(true)}
               >
                 <Surface style={{ minHeight: 400, padding: spacing.xl, justifyContent: 'center' }}>
@@ -188,13 +187,17 @@ export function MahandStudyScreen() {
                       <Text selectable adjustsFontSizeToFit minimumFontScale={0.55} numberOfLines={3} style={{ color: colors.ink, fontSize: 44, lineHeight: 56, fontWeight: '900', textAlign: 'center' }}>
                         {current.term}
                       </Text>
+                      <SpeechButton text={current.term} label="نطق الكلمة" />
                       <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, ...rtlText }}>
-                        دوس على الكارت عشان تشوف المعنى
+                        دوس عشان تشوف المعنى، أو اسحب مباشرة: يمين عارفها · شمال نسيتها
                       </Text>
                     </View>
                   ) : (
                     <View style={{ gap: spacing.lg, alignItems: 'stretch' }}>
-                      <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '900', textAlign: 'center' }}>{current.term}</Text>
+                      <View style={{ gap: spacing.sm, alignItems: 'center' }}>
+                        <Text selectable style={{ color: colors.inkMuted, fontSize: typography.label, fontWeight: '900', textAlign: 'center' }}>{current.term}</Text>
+                        <SpeechButton text={current.term} label="نطق الكلمة" />
+                      </View>
                       <Text selectable style={{ color: colors.ink, fontSize: 34, lineHeight: 46, fontWeight: '900', textAlign: 'center', writingDirection: 'rtl' }}>
                         {current.translation}
                       </Text>
@@ -216,18 +219,16 @@ export function MahandStudyScreen() {
             </SwipeGradeCard>
 
             {revealed ? (
-              <>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  <GradeButton label="نسيتها ↻" tone="danger" onPress={() => grade('FORGOT')} />
-                  <GradeButton label="عارفها ✓" tone="success" onPress={() => grade('KNEW')} />
-                </View>
-                <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, textAlign: 'center', ...rtlText }}>
-                  أو اسحب شمال لو نسيتها، ويمين لو عارفها.
-                </Text>
-              </>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <GradeButton label="نسيتها ↻" tone="danger" onPress={() => grade('FORGOT')} />
+                <GradeButton label="عارفها ✓" tone="success" onPress={() => grade('KNEW')} />
+              </View>
             ) : (
               <ActionButton label="اظهر المعنى" onPress={() => setRevealed(true)} />
             )}
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, textAlign: 'center', ...rtlText }}>
+              اسحب شمال لو نسيتها، ويمين لو عارفها — ينفع قبل أو بعد إظهار المعنى.
+            </Text>
           </>
         ) : null}
       </ScrollView>
