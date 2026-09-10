@@ -2,7 +2,6 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 export async function initializeMahandDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`
-    PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS mahand_hard_words (
       item_id TEXT PRIMARY KEY NOT NULL,
       added_at TEXT NOT NULL
