@@ -1,5 +1,5 @@
-import { HomeScreen } from '@/features/home/home-screen';
+import { MahandHomeScreen } from '@/features/mahand-simple/mahand-home-screen';
 
 export default function HomeRoute() {
-  return <HomeScreen />;
+  return <MahandHomeScreen />;
 }
