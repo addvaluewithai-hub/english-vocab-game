@@ -6,6 +6,7 @@ import { ActionButton, Surface } from '@/components/primitives';
 import { MAHAND_STATS, MAHAND_UNITS } from '@/curriculum/mahand/data';
 import type { MahandUnit } from '@/curriculum/mahand/types';
 import { listHardWordIds } from './hard-words-store';
+import { listForgottenCountsByUnit } from './unit-progress-store';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
 const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
@@ -18,16 +19,21 @@ export function MahandHomeScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const [hardWordCount, setHardWordCount] = useState(0);
+  const [forgottenCounts, setForgottenCounts] = useState<Record<string, number>>({});
 
-  const reloadHardWords = useCallback(async () => {
-    const ids = await listHardWordIds(db);
-    setHardWordCount(ids.length);
+  const reloadStats = useCallback(async () => {
+    const [hardIds, counts] = await Promise.all([
+      listHardWordIds(db),
+      listForgottenCountsByUnit(db),
+    ]);
+    setHardWordCount(hardIds.length);
+    setForgottenCounts(counts);
   }, [db]);
 
   useFocusEffect(
     useCallback(() => {
-      void reloadHardWords();
-    }, [reloadHardWords]),
+      void reloadStats();
+    }, [reloadStats]),
   );
 
   return (
@@ -44,7 +50,7 @@ export function MahandHomeScreen() {
             اختار الوحدة وابدأ الاختبار
           </Text>
           <Text selectable style={{ color: colors.surfaceMuted, fontSize: typography.body, lineHeight: 27, ...rtlText }}>
-            كل ضغطة على وحدة بتبدأ اختبار جديد على كلمات الوحدة كلها. مفيش اختيار درس، ومفيش عدد كلمات، ومفيش انتظار لسيشن بكرة.
+            نتيجتك على كل كلمة بتتسجل. تقدر تختبر الوحدة كلها، أو ترجع فقط للكلمات اللي آخر مرة قلت عليها نسيتها.
           </Text>
         </Surface>
 
@@ -74,31 +80,63 @@ export function MahandHomeScreen() {
           <Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>
             الوحدات
           </Text>
-          {MAHAND_UNITS.map((unit) => (
-            <Pressable
-              key={unit.id}
-              accessibilityRole="button"
-              accessibilityLabel={`ابدأ اختبار وحدة ${unit.number}: ${unit.title}`}
-              onPress={() => router.push({ pathname: '/study', params: { unitId: unit.id } })}
-              style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
-            >
-              <Surface style={{ padding: spacing.md, gap: spacing.xs }}>
+          {MAHAND_UNITS.map((unit) => {
+            const forgottenCount = forgottenCounts[unit.id] ?? 0;
+            return (
+              <Surface key={unit.id} style={{ padding: spacing.md, gap: spacing.md }}>
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md }}>
                   <View style={{ flex: 1, gap: 4 }}>
                     <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '900', ...rtlText }}>
-                      وحدة {unit.number} · {countUnit(unit)} كلمة
+                      وحدة {unit.number} · {countUnit(unit)} كلمة · نسيت {forgottenCount}
                     </Text>
                     <Text selectable style={{ color: colors.ink, fontSize: 22, lineHeight: 30, fontWeight: '900', ...rtlText }}>
                       {unit.title}
                     </Text>
                   </View>
-                  <View style={{ width: 42, height: 42, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted }}>
-                    <Text selectable style={{ color: colors.ink, fontSize: 20, fontWeight: '900' }}>←</Text>
+                  <View style={{ minWidth: 42, height: 42, paddingHorizontal: spacing.xs, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: forgottenCount > 0 ? colors.dangerSurface : colors.surfaceMuted }}>
+                    <Text selectable style={{ color: forgottenCount > 0 ? colors.danger : colors.inkMuted, fontSize: 16, fontWeight: '900' }}>{forgottenCount}</Text>
                   </View>
                 </View>
+
+                <View style={{ gap: spacing.sm }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`اختبر وحدة ${unit.number} كلها`}
+                    onPress={() => router.push({ pathname: '/study', params: { unitId: unit.id, mode: 'all' } })}
+                    style={({ pressed }) => ({
+                      minHeight: 50,
+                      borderRadius: radius.pill,
+                      backgroundColor: colors.ink,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.72 : 1,
+                    })}
+                  >
+                    <Text selectable style={{ color: colors.surface, fontSize: typography.label, fontWeight: '900' }}>اختبر الوحدة كلها</Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={forgottenCount > 0 ? `اختبر ${forgottenCount} كلمة نسيتها في وحدة ${unit.number}` : `مفيش كلمات منسية في وحدة ${unit.number}`}
+                    disabled={forgottenCount === 0}
+                    onPress={() => router.push({ pathname: '/study', params: { unitId: unit.id, mode: 'forgotten' } })}
+                    style={({ pressed }) => ({
+                      minHeight: 50,
+                      borderRadius: radius.pill,
+                      backgroundColor: forgottenCount > 0 ? colors.dangerSurface : colors.surfaceMuted,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: forgottenCount === 0 ? 0.55 : pressed ? 0.72 : 1,
+                    })}
+                  >
+                    <Text selectable style={{ color: forgottenCount > 0 ? colors.danger : colors.inkMuted, fontSize: typography.label, fontWeight: '900' }}>
+                      {forgottenCount > 0 ? `اختبر اللي نسيته بس · ${forgottenCount}` : 'مفيش كلمات منسية'}
+                    </Text>
+                  </Pressable>
+                </View>
               </Surface>
-            </Pressable>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
     </View>
