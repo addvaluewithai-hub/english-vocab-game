@@ -8,6 +8,7 @@ import { MAHAND_UNITS } from '@/curriculum/mahand/data';
 import type { MahandItem } from '@/curriculum/mahand/types';
 import type { ReviewGrade } from '@/domain/types';
 import { addHardWord, listHardWordIds } from './hard-words-store';
+import { listForgottenWordIds, recordUnitGrade } from './unit-progress-store';
 import { SpeechButton } from './speech-button';
 import { colors, radius, spacing, typography } from '@/theme/tokens';
 
@@ -45,10 +46,16 @@ function GradeButton({ label, tone, onPress }: { label: string; tone: 'success' 
 export function MahandStudyScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const params = useLocalSearchParams<{ unitId?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    unitId?: string | string[];
+    mode?: string | string[];
+  }>();
   const unitId = Array.isArray(params.unitId) ? params.unitId[0] : params.unitId ?? '';
+  const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode ?? 'all';
+  const forgottenOnly = rawMode === 'forgotten';
   const unit = useMemo(() => MAHAND_UNITS.find((candidate) => candidate.id === unitId) ?? null, [unitId]);
-  const items = useMemo(() => flattenUnit(unitId), [unitId]);
+  const allItems = useMemo(() => flattenUnit(unitId), [unitId]);
+  const [forgottenIds, setForgottenIds] = useState<string[] | null>(forgottenOnly ? null : []);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [knew, setKnew] = useState(0);
@@ -63,6 +70,35 @@ export function MahandStudyScreen() {
     return () => { active = false; };
   }, [db]);
 
+  useEffect(() => {
+    let active = true;
+    setIndex(0);
+    setRevealed(false);
+    setKnew(0);
+    setForgot(0);
+
+    if (!forgottenOnly) {
+      setForgottenIds([]);
+      return () => { active = false; };
+    }
+
+    setForgottenIds(null);
+    void listForgottenWordIds(db, unitId).then((ids) => {
+      if (active) setForgottenIds(ids);
+    });
+
+    return () => { active = false; };
+  }, [db, forgottenOnly, unitId]);
+
+  const forgottenIdSet = useMemo(
+    () => new Set(forgottenIds ?? []),
+    [forgottenIds],
+  );
+  const items = useMemo(
+    () => forgottenOnly ? allItems.filter((item) => forgottenIdSet.has(item.id)) : allItems,
+    [allItems, forgottenIdSet, forgottenOnly],
+  );
+  const loadingForgotten = forgottenOnly && forgottenIds === null;
   const current = items[index] ?? null;
   const finished = items.length > 0 && index >= items.length;
 
@@ -72,26 +108,60 @@ export function MahandStudyScreen() {
     setHardWordIds((existing) => new Set(existing).add(current.id));
   }
 
-  function grade(value: ReviewGrade) {
+  async function grade(value: ReviewGrade) {
     if (!current) return;
+    await recordUnitGrade(db, unitId, current.id, value);
     if (value === 'KNEW') setKnew((count) => count + 1);
     else setForgot((count) => count + 1);
     setIndex((value) => value + 1);
     setRevealed(false);
   }
 
-  function restart() {
+  async function restart() {
+    if (forgottenOnly) {
+      setForgottenIds(null);
+      const ids = await listForgottenWordIds(db, unitId);
+      setForgottenIds(ids);
+    }
     setIndex(0);
     setRevealed(false);
     setKnew(0);
     setForgot(0);
   }
 
-  if (!unit || items.length === 0) {
+  if (!unit || allItems.length === 0) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.canvas, padding: spacing.lg, justifyContent: 'center' }}>
         <Surface style={{ padding: spacing.lg, gap: spacing.md }}>
           <Text selectable style={{ color: colors.ink, fontSize: typography.title, fontWeight: '900', ...rtlText }}>الوحدة مش موجودة</Text>
+          <ActionButton label="ارجع للوحدات" onPress={() => router.replace('/')} />
+        </Surface>
+      </View>
+    );
+  }
+
+  if (loadingForgotten) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.canvas, padding: spacing.lg, justifyContent: 'center' }}>
+        <Surface style={{ padding: spacing.xl, alignItems: 'center' }}>
+          <Text selectable style={{ color: colors.inkMuted, ...rtlText }}>بجهز الكلمات اللي نسيتها…</Text>
+        </Surface>
+      </View>
+    );
+  }
+
+  if (forgottenOnly && items.length === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.canvas, padding: spacing.lg, justifyContent: 'center' }}>
+        <Surface style={{ padding: spacing.xl, gap: spacing.lg, alignItems: 'stretch' }}>
+          <View style={{ gap: spacing.sm, alignItems: 'center' }}>
+            <Text selectable style={{ fontSize: 46 }}>🎉</Text>
+            <Text selectable style={{ color: colors.ink, fontSize: 30, fontWeight: '900', ...rtlText }}>مفيش كلمات منسية في الوحدة دي</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 26, ...rtlText }}>
+              أي كلمة تقول عليها نسيتها في اختبار الوحدة هتظهر هنا، ولو بعدين قلت عارفها هتتشال من قائمة المنسي.
+            </Text>
+          </View>
+          <ActionButton label="اختبر الوحدة كلها" onPress={() => router.replace({ pathname: '/study', params: { unitId, mode: 'all' } })} />
           <ActionButton label="ارجع للوحدات" onPress={() => router.replace('/')} />
         </Surface>
       </View>
@@ -106,7 +176,9 @@ export function MahandStudyScreen() {
       >
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.md }}>
           <View style={{ flex: 1, gap: 3 }}>
-            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '900', ...rtlText }}>وحدة {unit.number}</Text>
+            <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '900', ...rtlText }}>
+              وحدة {unit.number}{forgottenOnly ? ' · اللي نسيته بس' : ''}
+            </Text>
             <Text accessibilityRole="header" selectable style={{ color: colors.ink, fontSize: 26, lineHeight: 34, fontWeight: '900', ...rtlText }}>{unit.title}</Text>
           </View>
           <Pressable
@@ -130,7 +202,7 @@ export function MahandStudyScreen() {
         <View style={{ gap: spacing.xs }}>
           <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
             <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '800', ...rtlText }}>
-              {finished ? 'خلصت الوحدة' : `${index + 1} من ${items.length}`}
+              {finished ? (forgottenOnly ? 'خلصت الكلمات المنسية' : 'خلصت الوحدة') : `${index + 1} من ${items.length}`}
             </Text>
             <Text selectable style={{ color: colors.inkMuted, fontSize: typography.small, fontWeight: '800', ...rtlText }}>
               عارفها {knew} · نسيتها {forgot}
@@ -143,12 +215,17 @@ export function MahandStudyScreen() {
           <Surface style={{ padding: spacing.xl, gap: spacing.lg, alignItems: 'stretch' }}>
             <View style={{ gap: spacing.sm, alignItems: 'center' }}>
               <Text selectable style={{ fontSize: 46 }}>✅</Text>
-              <Text selectable style={{ color: colors.ink, fontSize: 32, fontWeight: '900', ...rtlText }}>خلصت الوحدة كلها</Text>
+              <Text selectable style={{ color: colors.ink, fontSize: 32, fontWeight: '900', ...rtlText }}>
+                {forgottenOnly ? 'خلصت مراجعة اللي نسيته' : 'خلصت الوحدة كلها'}
+              </Text>
               <Text selectable style={{ color: colors.inkMuted, fontSize: typography.body, lineHeight: 26, ...rtlText }}>
-                عارفها: {knew} · نسيتها: {forgot}. تقدر تعيد نفس الوحدة فورًا براحتك.
+                عارفها: {knew} · نسيتها: {forgot}. كل نتيجة اتسجلت، وتقدر ترجع تختبر حسب آخر نتيجة لكل كلمة.
               </Text>
             </View>
-            <ActionButton label="اختبر الوحدة تاني" onPress={restart} />
+            <ActionButton
+              label={forgottenOnly ? 'اختبر اللي لسه ناسيه' : 'اختبر الوحدة تاني'}
+              onPress={() => void restart()}
+            />
             <ActionButton label="ارجع للوحدات" onPress={() => router.replace('/')} />
           </Surface>
         ) : current ? (
@@ -175,7 +252,7 @@ export function MahandStudyScreen() {
               </Pressable>
             </View>
 
-            <SwipeGradeCard key={current.id} disabled={false} onGrade={grade}>
+            <SwipeGradeCard key={current.id} disabled={false} onGrade={(value) => { void grade(value); }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={revealed ? `${current.term}. ${current.translation}` : `${current.term}. دوس عشان تشوف المعنى، أو اسحب مباشرة.`}
@@ -220,8 +297,8 @@ export function MahandStudyScreen() {
 
             {revealed ? (
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <GradeButton label="نسيتها ↻" tone="danger" onPress={() => grade('FORGOT')} />
-                <GradeButton label="عارفها ✓" tone="success" onPress={() => grade('KNEW')} />
+                <GradeButton label="نسيتها ↻" tone="danger" onPress={() => { void grade('FORGOT'); }} />
+                <GradeButton label="عارفها ✓" tone="success" onPress={() => { void grade('KNEW'); }} />
               </View>
             ) : (
               <ActionButton label="اظهر المعنى" onPress={() => setRevealed(true)} />
